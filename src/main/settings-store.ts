@@ -1,30 +1,61 @@
-import Store from 'electron-store';
+import fs from 'fs';
+import path from 'path';
+import { app } from 'electron';
 import { PermissionMode } from '@shared/types';
 
 const MAX_RECENT_DIRS = 10;
 
-export class SettingsStore {
-  private store: Store;
+interface StoreData {
+  recentDirs: string[];
+  permissionMode: PermissionMode;
+}
 
-  constructor() {
-    this.store = new Store({ name: 'claude-terminal-settings' });
+const DEFAULTS: StoreData = {
+  recentDirs: [],
+  permissionMode: 'bypassPermissions',
+};
+
+export class SettingsStore {
+  private filePath: string;
+  private data: StoreData;
+
+  constructor(filePath?: string) {
+    this.filePath = filePath ?? path.join(app.getPath('userData'), 'claude-terminal-settings.json');
+    this.data = this.load();
+  }
+
+  private load(): StoreData {
+    try {
+      const raw = fs.readFileSync(this.filePath, 'utf-8');
+      return { ...DEFAULTS, ...JSON.parse(raw) };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  }
+
+  private save(): void {
+    const dir = path.dirname(this.filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
   }
 
   getRecentDirs(): string[] {
-    return this.store.get('recentDirs', []) as string[];
+    return this.data.recentDirs;
   }
 
   addRecentDir(dir: string): void {
-    const dirs = this.getRecentDirs().filter(d => d !== dir);
-    dirs.unshift(dir);
-    this.store.set('recentDirs', dirs.slice(0, MAX_RECENT_DIRS));
+    this.data.recentDirs = this.data.recentDirs.filter(d => d !== dir);
+    this.data.recentDirs.unshift(dir);
+    this.data.recentDirs = this.data.recentDirs.slice(0, MAX_RECENT_DIRS);
+    this.save();
   }
 
   getPermissionMode(): PermissionMode {
-    return this.store.get('permissionMode', 'bypassPermissions') as PermissionMode;
+    return this.data.permissionMode;
   }
 
   setPermissionMode(mode: PermissionMode): void {
-    this.store.set('permissionMode', mode);
+    this.data.permissionMode = mode;
+    this.save();
   }
 }

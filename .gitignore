@@ -91,3 +91,6 @@ typings/
 # Electron-Forge
 out/
 dist/
+
+# Claude Code local config
+.claude/

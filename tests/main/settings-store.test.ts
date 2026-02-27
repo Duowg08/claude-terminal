@@ -1,22 +1,26 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+// @vitest-environment node
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
-vi.mock('electron-store', () => {
-  return {
-    default: class MockStore {
-      private data: Record<string, unknown> = {};
-      get(key: string, defaultVal?: unknown) { return this.data[key] ?? defaultVal; }
-      set(key: string, val: unknown) { this.data[key] = val; }
-    },
-  };
-});
+vi.mock('electron', () => ({
+  app: { getPath: vi.fn(() => os.tmpdir()) },
+}));
 
 import { SettingsStore } from '@main/settings-store';
 
 describe('SettingsStore', () => {
   let store: SettingsStore;
+  let tmpFile: string;
 
   beforeEach(() => {
-    store = new SettingsStore();
+    tmpFile = path.join(os.tmpdir(), `claude-terminal-test-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    store = new SettingsStore(tmpFile);
+  });
+
+  afterEach(() => {
+    try { fs.unlinkSync(tmpFile); } catch { /* ignore */ }
   });
 
   it('returns empty recent dirs by default', () => {
@@ -51,5 +55,11 @@ describe('SettingsStore', () => {
   it('saves and retrieves permission mode', () => {
     store.setPermissionMode('plan');
     expect(store.getPermissionMode()).toBe('plan');
+  });
+
+  it('persists to disk and reloads', () => {
+    store.addRecentDir('D:\\dev\\Persist');
+    const store2 = new SettingsStore(tmpFile);
+    expect(store2.getRecentDirs()).toContain('D:\\dev\\Persist');
   });
 });
