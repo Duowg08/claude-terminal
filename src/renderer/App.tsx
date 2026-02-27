@@ -6,6 +6,7 @@ import Terminal from './components/Terminal';
 import { destroyTerminal } from './components/terminalCache';
 import StatusBar from './components/StatusBar';
 import NewTabDialog from './components/NewTabDialog';
+import { buildWindowTitle } from '../shared/window-title';
 import WorktreeNameDialog from './components/WorktreeNameDialog';
 
 type AppState = 'startup' | 'running';
@@ -16,6 +17,7 @@ export default function App() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showNewTabDialog, setShowNewTabDialog] = useState(false);
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
+  const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
@@ -26,6 +28,8 @@ export default function App() {
     (async () => {
       const cliDir = await window.claudeTerminal.getCliStartDir();
       if (!cliDir || cancelled) return;
+
+      setWorkspaceDir(cliDir);
 
       const savedMode = await window.claudeTerminal.getPermissionMode();
       if (cancelled) return;
@@ -89,6 +93,12 @@ export default function App() {
       cleanupRemoved();
     };
   }, []);
+
+  // Update window title when tabs or workspace change
+  useEffect(() => {
+    const title = buildWindowTitle(workspaceDir, tabs);
+    window.claudeTerminal.setWindowTitle(title);
+  }, [tabs, workspaceDir]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -162,6 +172,7 @@ export default function App() {
 
   const handleStartSession = async (dir: string, mode: PermissionMode) => {
     await window.claudeTerminal.startSession(dir, mode);
+    setWorkspaceDir(dir);
 
     // Check for saved tabs from a previous session in this directory
     const savedTabs = await window.claudeTerminal.getSavedTabs(dir);
