@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { terminalCache } from './terminalCache';
@@ -11,13 +10,31 @@ interface TerminalProps {
   isVisible: boolean;
 }
 
-// Single global PTY data listener (registered once, not per component)
+// Single global PTY data listener (registered once, not per component).
+// We store the cleanup handle on `window` so it survives Vite HMR module
+// reloads — a module-level variable would reset, leaving the old listener
+// on ipcRenderer and causing duplicate writes (doubled characters).
 let ptyListenerRegistered = false;
 
 function ensurePtyListener(): void {
   if (ptyListenerRegistered) return;
   ptyListenerRegistered = true;
-  window.claudeTerminal.onPtyData((dataTabId, data) => {
+
+  // Clean up any stale listener from a previous HMR module instance
+  const win = window as any;
+  if (typeof win.__cleanupPtyListener === 'function') {
+    win.__cleanupPtyListener();
+  }
+
+  // DEBUG: count write calls to detect duplicate listeners
+  const win2 = window as any;
+  win2.__ptyWriteCount = (win2.__ptyWriteCount || 0);
+
+  win.__cleanupPtyListener = window.claudeTerminal.onPtyData((dataTabId, data) => {
+    win2.__ptyWriteCount++;
+    if (win2.__ptyWriteCount <= 20 || win2.__ptyWriteCount % 100 === 0) {
+      console.log(`[PTY] write #${win2.__ptyWriteCount} tab=${dataTabId} len=${data.length}`);
+    }
     const cached = terminalCache.get(dataTabId);
     if (cached) {
       cached.term.write(data);
@@ -71,7 +88,7 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
 
       // Let app-level shortcuts pass through to the window handler
       term.attachCustomKeyEventHandler((e) => {
-        if (e.ctrlKey && (e.key === 'F4' || e.key === 't' || e.key === 'Tab'))
+        if (e.ctrlKey && (e.key === 'F4' || e.key === 't' || e.key === 'w' || e.key === 'Tab'))
           return false;
         if (e.ctrlKey && e.key >= '1' && e.key <= '9') return false;
         if (e.key === 'F2') return false;
@@ -83,7 +100,7 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
         window.claudeTerminal.writeToPty(tabId, data);
       });
 
-      cached = { term, fitAddon, webglLoaded: false };
+      cached = { term, fitAddon };
       terminalCache.set(tabId, cached);
     }
 
@@ -94,7 +111,10 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
 
     // Helper: fit terminal and sync PTY dimensions
     const fitAndSync = () => {
+      const prevCols = term.cols;
+      const prevRows = term.rows;
       fitAddon.fit();
+      console.log(`[FIT] tab=${tabId} ${prevCols}x${prevRows} -> ${term.cols}x${term.rows}`);
       if (term.cols > 0 && term.rows > 0) {
         window.claudeTerminal.resizePty(tabId, term.cols, term.rows);
       }
@@ -104,20 +124,13 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
     const alreadyAttached =
       attachedRef.current === tabId && container.querySelector('.xterm');
 
+    console.log(`[TERM] effect run tab=${tabId} isVisible=${isVisible} alreadyAttached=${alreadyAttached}`);
+
     if (!alreadyAttached) {
+      console.log(`[TERM] OPENING terminal tab=${tabId}`);
       // Clear container and attach
       container.innerHTML = '';
       term.open(container);
-
-      // Try to load WebGL addon BEFORE fitting (changes character metrics)
-      if (!cached.webglLoaded) {
-        try {
-          term.loadAddon(new WebglAddon());
-          cached.webglLoaded = true;
-        } catch {
-          // WebGL not available, use canvas renderer
-        }
-      }
 
       attachedRef.current = tabId;
     }
@@ -128,6 +141,7 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
       if (selection) {
         e.preventDefault();
         navigator.clipboard.writeText(selection);
+        term.clearSelection();
       }
     };
     container.addEventListener('contextmenu', handleContextMenu);
@@ -139,7 +153,9 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
 
     // Handle resize — always set up observer (even for already-attached terminals)
     let resizeTimeout: ReturnType<typeof setTimeout>;
-    const resizeObserver = new ResizeObserver(() => {
+    const resizeObserver = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      console.log(`[RESIZE] tab=${tabId} ${r?.width}x${r?.height}`);
       // Debounce rapid resize events to avoid flooding the PTY
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(fitAndSync, 50);

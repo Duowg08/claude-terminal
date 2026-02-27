@@ -6,6 +6,7 @@ import Terminal from './components/Terminal';
 import { destroyTerminal } from './components/terminalCache';
 import StatusBar from './components/StatusBar';
 import NewTabDialog from './components/NewTabDialog';
+import WorktreeNameDialog from './components/WorktreeNameDialog';
 
 type AppState = 'startup' | 'running';
 
@@ -14,6 +15,7 @@ export default function App() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showNewTabDialog, setShowNewTabDialog] = useState(false);
+  const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
   const tabsRef = useRef(tabs);
   tabsRef.current = tabs;
 
@@ -94,10 +96,17 @@ export default function App() {
       // Only handle shortcuts when running
       if (appState !== 'running') return;
 
-      // Ctrl+T: new tab
+      // Ctrl+T: new tab (no worktree, no dialog)
       if (e.ctrlKey && e.key === 't') {
         e.preventDefault();
-        setShowNewTabDialog(true);
+        handleNewTabWithoutWorktree();
+        return;
+      }
+
+      // Ctrl+W: new worktree tab (prompt for name)
+      if (e.ctrlKey && e.key === 'w') {
+        e.preventDefault();
+        setShowWorktreeDialog(true);
         return;
       }
 
@@ -193,6 +202,7 @@ export default function App() {
 
   const handleNewTabWithWorktree = async (name: string) => {
     setShowNewTabDialog(false);
+    setShowWorktreeDialog(false);
     await window.claudeTerminal.createWorktree(name);
     const tab = await window.claudeTerminal.createTab(name);
     setActiveTabId(tab.id);
@@ -239,6 +249,12 @@ export default function App() {
           onCreateWithWorktree={handleNewTabWithWorktree}
           onCreateWithoutWorktree={handleNewTabWithoutWorktree}
           onCancel={() => setShowNewTabDialog(false)}
+        />
+      )}
+      {showWorktreeDialog && (
+        <WorktreeNameDialog
+          onCreateWithWorktree={handleNewTabWithWorktree}
+          onCancel={() => setShowWorktreeDialog(false)}
         />
       )}
     </div>
