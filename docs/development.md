@@ -32,6 +32,7 @@ Configured in `tsconfig.json`, `vitest.config.ts`, and `vite.main.config.mjs`:
 | `settings-store.ts` | JSON file persistence for settings |
 | `worktree-manager.ts` | Git worktree operations via `execSync` |
 | `hook-installer.ts` | Writes `.claude/settings.local.json` to target dirs |
+| `logger.ts` | Forwards main-process logs to DevTools console via BrowserWindow |
 
 ### Renderer Components
 
@@ -137,7 +138,7 @@ Output goes to `out/`. The build uses:
 
 ### Adding a new hook event
 
-1. Create the shell script in `src/hooks/`
+1. Create a Node.js script in `src/hooks/` (use `.js` — hooks run via `node`)
 2. Add the event to `HookInstaller.install()` in `src/main/hook-installer.ts`
 3. Handle the event in `handleHookMessage()` in `src/main/index.ts`
 4. Add tests

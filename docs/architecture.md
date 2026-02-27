@@ -24,6 +24,9 @@ ClaudeTerminal is an Electron desktop app that manages multiple Claude Code CLI 
 │  │IpcServer  │ │Worktree   │ │HookInstaller  │  │
 │  │named pipe │ │Manager    │ │               │  │
 │  └─────┬─────┘ └───────────┘ └───────────────┘  │
+│  ┌───────────┐                                   │
+│  │  Logger   │ Forwards to DevTools console      │
+│  └───────────┘                                   │
 └────────┼─────────────────────────────────────────┘
          │ Windows Named Pipe
          │ (\\.\pipe\claude-terminal)
@@ -31,7 +34,7 @@ ClaudeTerminal is an Electron desktop app that manages multiple Claude Code CLI 
 │           Claude Code Processes (N)               │
 │  Each spawned via node-pty as cmd.exe /c claude   │
 │  Hooks configured via .claude/settings.local.json │
-│  Hook scripts send JSON over named pipe           │
+│  Hook scripts (.js) send JSON over named pipe     │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -59,7 +62,7 @@ A React SPA that renders:
 
 ### Preload (`src/preload.ts`)
 
-Exposes 18 methods via `contextBridge.exposeInMainWorld('claudeTerminal', api)`:
+Exposes 19 methods via `contextBridge.exposeInMainWorld('claudeTerminal', api)`:
 
 | Category | Methods |
 |----------|---------|
@@ -67,7 +70,7 @@ Exposes 18 methods via `contextBridge.exposeInMainWorld('claudeTerminal', api)`:
 | PTY | `writeToPty`, `resizePty` |
 | Worktree | `createWorktree`, `getCurrentBranch` |
 | Settings | `getRecentDirs`, `getPermissionMode` |
-| Startup | `selectDirectory`, `startSession`, `getCliStartDir` |
+| Startup | `selectDirectory`, `startSession`, `getSavedTabs`, `getCliStartDir` |
 | Events | `onPtyData`, `onTabUpdate`, `onTabRemoved` |
 
 ## Data Flow
@@ -89,8 +92,8 @@ User clicks [+] -> NewTabDialog -> renderer calls createTab(worktree)
 
 ```
 Claude Code runs a hook (e.g., PreToolUse)
-  -> on-tool-use.sh runs
-    -> pipe-send.sh sends JSON to named pipe
+  -> on-tool-use.js runs via node
+    -> pipe-send.js sends JSON to named pipe
       -> HookIpcServer receives message
         -> handleHookMessage() updates TabManager state
           -> sendToRenderer('tab:updated') notifies renderer
@@ -115,37 +118,45 @@ Claude produces output
 
 ## Hook System
 
-Claude Code supports hooks that fire on specific events. ClaudeTerminal installs a `settings.local.json` into each working directory's `.claude/` folder with hooks pointing to bundled shell scripts.
+Claude Code supports hooks that fire on specific events. ClaudeTerminal installs a `settings.local.json` into each working directory's `.claude/` folder with hooks pointing to bundled Node.js scripts.
 
 ### Hook Events Used
 
 | Event | Script | Purpose |
 |-------|--------|---------|
-| `SessionStart` | `on-session-start.sh` | Marks tab as ready |
-| `UserPromptSubmit` | `on-prompt-submit.sh` | Sets tab name from first prompt (40 chars) |
-| `PreToolUse` | `on-tool-use.sh` | Sets status to `working` |
-| `Stop` | `on-stop.sh` | Sets status to `idle` |
-| `Notification` | `on-notification.sh` | Sets status to `requires_response` |
-| `SessionEnd` | `on-session-end.sh` | Removes tab |
+| `SessionStart` | `on-session-start.js` | Marks tab as ready, captures session ID |
+| `UserPromptSubmit` | `on-prompt-submit.js` | Sends first prompt to main process for AI-generated tab name |
+| `PreToolUse` | `on-tool-use.js` | Sets status to `working` |
+| `Stop` | `on-stop.js` | Sets status to `idle` |
+| `Notification` | `on-notification.js` | Sets status to `requires_response` |
+| `SessionEnd` | `on-session-end.js` | Removes tab (debounced to handle `/clear` restarts) |
 
 ### Communication Path
 
-All hooks use `pipe-send.sh` which sends JSON via Node.js `net.createConnection` to the Windows named pipe. Environment variables (`PIPE_PATH`, `PIPE_MSG`) are used instead of string interpolation to avoid Windows backslash escaping issues.
+All hooks use `pipe-send.js` which sends JSON via Node.js `net.createConnection` to the Windows named pipe. Environment variables (`CLAUDE_TERMINAL_TAB_ID`, `CLAUDE_TERMINAL_PIPE`) are set on the PTY process to avoid Windows cmd.exe backslash mangling in CLI arguments.
 
 ## State Management
 
 ### Tab State (Main Process)
 
-`TabManager` is a pure in-memory state store. No persistence — tabs are ephemeral.
+`TabManager` is a pure in-memory state store. Session persistence is handled separately — on session start, saved tabs from the previous session are offered for restoration.
 
 ```typescript
 interface Tab {
   id: string;           // Generated: tab-{timestamp}-{random}
-  name: string;         // From worktree name or first prompt
+  name: string;         // From worktree name or AI-generated from first prompt
   status: TabStatus;    // 'new' | 'working' | 'idle' | 'requires_response'
   worktree: string | null;
   cwd: string;
   pid: number | null;
+  sessionId: string | null;  // Claude Code session ID for resume support
+}
+
+interface SavedTab {
+  name: string;
+  cwd: string;
+  worktree: string | null;
+  sessionId: string;
 }
 ```
 
@@ -153,7 +164,9 @@ interface Tab {
 
 `SettingsStore` persists to `{userData}/claude-terminal-settings.json`:
 - `recentDirs`: Last 10 working directories (MRU order)
-- `permissionMode`: Last used permission mode
+- `lastPermissionMode`: Last used permission mode
+
+Session data is persisted per-directory in `{userData}/sessions/{dir-hash}.json` to support tab restoration across restarts.
 
 ### Renderer State
 

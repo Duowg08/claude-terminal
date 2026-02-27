@@ -51,7 +51,7 @@ pnpm start -- /path/to/project
 | Action | How |
 |--------|-----|
 | New tab | `Ctrl+T` or click `+` button |
-| Close tab | `Ctrl+W` or click `x` on tab |
+| Close tab | `Ctrl+F4` or click `x` on tab |
 | Switch tabs | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | Jump to tab | `Ctrl+1` through `Ctrl+9` |
 | Rename tab | `F2` or double-click tab name |
