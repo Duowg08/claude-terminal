@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification } from 'electron';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 
@@ -114,6 +115,41 @@ function notifyTabActivity(tabId: string, title: string, body: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Helper: generate a smart tab name using Claude Haiku
+// ---------------------------------------------------------------------------
+function generateTabName(tabId: string, prompt: string) {
+  const namePrompt = `Generate a short tab title (3-5 words) for a coding conversation that starts with this message. Reply with ONLY the title, no quotes, no punctuation:\n\n${prompt}`;
+
+  const isWindows = process.platform === 'win32';
+  const cmd = isWindows ? 'cmd.exe' : 'claude';
+  const args = isWindows
+    ? ['/c', 'claude', '-p', '--model', 'claude-haiku-4-5-20251001']
+    : ['-p', '--model', 'claude-haiku-4-5-20251001'];
+
+  const child = execFile(cmd, args, { timeout: 30000 }, (err, stdout) => {
+    if (err) {
+      console.debug('[generateTabName] failed for tab %s: %s', tabId, err.message);
+      return;
+    }
+
+    const name = stdout.trim().replace(/^["']|["']$/g, '').substring(0, 50);
+    if (!name) return;
+
+    const tab = tabManager.getTab(tabId);
+    if (!tab) return;
+
+    tabManager.rename(tabId, name);
+    const updated = tabManager.getTab(tabId);
+    if (updated) {
+      sendToRenderer('tab:updated', updated);
+    }
+  });
+
+  child.stdin?.write(namePrompt);
+  child.stdin?.end();
+}
+
+// ---------------------------------------------------------------------------
 // Hook message handling (from named-pipe IPC server)
 // ---------------------------------------------------------------------------
 function handleHookMessage(msg: IpcMessage) {
@@ -160,6 +196,12 @@ function handleHookMessage(msg: IpcMessage) {
         tabManager.rename(tabId, data);
       }
       break;
+
+    case 'tab:generate-name':
+      if (data) {
+        generateTabName(tabId, data);
+      }
+      return; // don't broadcast tab:updated yet — the async call will do it
 
     default:
       return;
