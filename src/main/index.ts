@@ -126,6 +126,9 @@ function handleHookMessage(msg: IpcMessage) {
   switch (event) {
     case 'tab:ready':
       tabManager.updateStatus(tabId, 'new');
+      if (data) {
+        tabManager.setSessionId(tabId, data);
+      }
       break;
 
     case 'tab:status:working':
@@ -188,7 +191,7 @@ function registerIpcHandlers() {
   );
 
   // ---- Tabs ----
-  ipcMain.handle('tab:create', async (_event, worktree: string | null) => {
+  ipcMain.handle('tab:create', async (_event, worktree: string | null, resumeSessionId?: string) => {
     const cwd = worktree ?? workspaceDir!;
     const tab = tabManager.createTab(cwd, worktree);
 
@@ -199,6 +202,9 @@ function registerIpcHandlers() {
 
     // Build claude CLI arguments.
     const args: string[] = [...(PERMISSION_FLAGS[permissionMode] ?? [])];
+    if (resumeSessionId) {
+      args.push('--resume', resumeSessionId);
+    }
 
     // Extra env vars so hooks know which pipe to talk to.
     const extraEnv: Record<string, string> = {
@@ -333,6 +339,21 @@ app.on('ready', async () => {
 });
 
 app.on('window-all-closed', async () => {
+  // Save tab sessions before cleanup
+  if (workspaceDir) {
+    const savedTabs = tabManager.getAllTabs()
+      .filter(t => t.sessionId)
+      .map(t => ({
+        name: t.name,
+        cwd: t.cwd,
+        worktree: t.worktree,
+        sessionId: t.sessionId!,
+      }));
+    if (savedTabs.length > 0) {
+      settings.saveSessions(workspaceDir, savedTabs);
+    }
+  }
+
   ptyManager.killAll();
   try {
     await ipcServer.stop();
