@@ -118,6 +118,9 @@ export default function App() {
     setTabs(allTabs);
     setActiveTabId(activeId);
     setAppState('running');
+    if (allTabs.length === 0) {
+      setShowNewTabDialog(true);
+    }
   };
 
   const handleSelectTab = useCallback(async (tabId: string) => {
