@@ -34,6 +34,10 @@ const api = {
   getPermissionMode: (): Promise<PermissionMode> =>
     ipcRenderer.invoke('settings:permissionMode'),
 
+  // Window title
+  setWindowTitle: (title: string): void =>
+    ipcRenderer.send('window:setTitle', title),
+
   // Startup
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:selectDirectory'),

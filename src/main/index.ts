@@ -282,9 +282,6 @@ function registerIpcHandlers() {
     async (_event, dir: string, mode: PermissionMode) => {
       workspaceDir = dir;
       permissionMode = mode;
-      if (mainWindow) {
-        mainWindow.setTitle(`ClaudeTerminal - ${dir}`);
-      }
       settings.setPermissionMode(mode);
       worktreeManager = new WorktreeManager(dir);
       // In dev, __dirname is .vite/build/ — go up to project root.
@@ -449,6 +446,13 @@ function registerIpcHandlers() {
       ptyManager.resize(tabId, cols, rows);
     },
   );
+
+  // ---- Window title (fire-and-forget) ----
+  ipcMain.on('window:setTitle', (_event, title: string) => {
+    if (mainWindow) {
+      mainWindow.setTitle(title);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
