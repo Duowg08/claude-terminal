@@ -182,6 +182,10 @@ function generateTabName(tabId: string, prompt: string) {
 // ---------------------------------------------------------------------------
 // Hook message handling (from named-pipe IPC server)
 // ---------------------------------------------------------------------------
+// Pending tab close timeouts — allows cancellation when /clear triggers
+// SessionEnd followed by SessionStart for the same tab.
+const pendingCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 function handleHookMessage(msg: IpcMessage) {
   const { tabId, event, data } = msg;
   log.debug('[hook]', event, tabId, data ? data.substring(0, 80) : null);
@@ -192,6 +196,12 @@ function handleHookMessage(msg: IpcMessage) {
 
   switch (event) {
     case 'tab:ready':
+      // Cancel any pending close (e.g. /clear triggers SessionEnd then SessionStart)
+      if (pendingCloseTimers.has(tabId)) {
+        clearTimeout(pendingCloseTimers.get(tabId));
+        pendingCloseTimers.delete(tabId);
+        log.info('[tab:ready] cancelled pending close for', tabId);
+      }
       tabManager.updateStatus(tabId, 'new');
       if (data) {
         tabManager.setSessionId(tabId, data);
@@ -219,12 +229,24 @@ function handleHookMessage(msg: IpcMessage) {
       }
       break;
 
-    case 'tab:closed':
-      cleanupNamingFlag(tabId);
-      tabManager.removeTab(tabId);
-      ptyManager.kill(tabId);
-      sendToRenderer('tab:removed', tabId);
+    case 'tab:closed': {
+      // Debounce: /clear triggers SessionEnd then SessionStart in quick
+      // succession.  Wait briefly before actually tearing down the tab so
+      // a follow-up tab:ready can cancel the close.
+      if (pendingCloseTimers.has(tabId)) {
+        clearTimeout(pendingCloseTimers.get(tabId));
+      }
+      const closeTimer = setTimeout(() => {
+        pendingCloseTimers.delete(tabId);
+        log.info('[tab:closed] closing tab', tabId);
+        cleanupNamingFlag(tabId);
+        tabManager.removeTab(tabId);
+        ptyManager.kill(tabId);
+        sendToRenderer('tab:removed', tabId);
+      }, 2000);
+      pendingCloseTimers.set(tabId, closeTimer);
       return; // no tab:updated to send
+    }
 
     case 'tab:name':
       if (data) {
@@ -314,6 +336,11 @@ function registerIpcHandlers() {
 
     // When the PTY exits, clean up.
     proc.onExit(() => {
+      // Cancel any pending debounced close from hook — PTY exit is definitive.
+      if (pendingCloseTimers.has(tab.id)) {
+        clearTimeout(pendingCloseTimers.get(tab.id));
+        pendingCloseTimers.delete(tab.id);
+      }
       cleanupNamingFlag(tab.id);
       tabManager.removeTab(tab.id);
       sendToRenderer('tab:removed', tab.id);
