@@ -1,4 +1,39 @@
-// Shared type definitions for ClaudeTerminal
-// This file will be populated with IPC channel types, tab state types, etc.
+export type TabStatus = 'new' | 'working' | 'idle' | 'requires_response';
 
-export {};
+export type PermissionMode = 'default' | 'plan' | 'acceptEdits' | 'bypassPermissions';
+
+export interface Tab {
+  id: string;
+  name: string;
+  status: TabStatus;
+  worktree: string | null;
+  cwd: string;
+  pid: number | null;
+}
+
+export interface IpcMessage {
+  tabId: string;
+  event: string;
+  data: string | null;
+}
+
+export interface AppSettings {
+  recentDirs: string[];
+  lastPermissionMode: PermissionMode;
+}
+
+export const PIPE_NAME = '\\\\.\\pipe\\claude-terminal';
+
+export const STATUS_INDICATORS: Record<TabStatus, string> = {
+  new: '●',
+  working: '◉',
+  requires_response: '◈',
+  idle: '○',
+};
+
+export const PERMISSION_FLAGS: Record<PermissionMode, string[]> = {
+  default: [],
+  plan: ['--plan'],
+  acceptEdits: ['--allowedTools', 'Edit,Write,NotebookEdit'],
+  bypassPermissions: ['--dangerously-skip-permissions'],
+};
