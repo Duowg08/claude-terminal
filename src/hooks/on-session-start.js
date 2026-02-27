@@ -16,13 +16,15 @@ process.stdin.on('data', (c) => (input += c));
 process.stdin.on('end', () => {
   debugAppend(`on-session-start input: ${input.substring(0, 500)}`);
   let sessionId = '';
+  let source = '';
   try {
     const j = JSON.parse(input);
     sessionId = j.session_id || '';
-    debugAppend(`parsed session_id: "${sessionId}"`);
+    source = j.source || '';
+    debugAppend(`parsed session_id: "${sessionId}" source: "${source}"`);
   } catch (e) {
     debugAppend(`parse error: ${e.message}`);
   }
-  debugAppend(`sending tab:ready with sessionId="${sessionId}" tabId="${process.env.CLAUDE_TERMINAL_TAB_ID}"`);
-  execFileSync('node', [pipeSend, 'tab:ready', sessionId], { timeout: 5000 });
+  debugAppend(`sending tab:ready with sessionId="${sessionId}" source="${source}" tabId="${process.env.CLAUDE_TERMINAL_TAB_ID}"`);
+  execFileSync('node', [pipeSend, 'tab:ready', JSON.stringify({ sessionId, source })], { timeout: 5000 });
 });

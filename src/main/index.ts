@@ -141,7 +141,7 @@ function notifyTabActivity(tabId: string, title: string, body: string) {
 // ---------------------------------------------------------------------------
 function cleanupNamingFlag(tabId: string) {
   const flagFile = path.join(os.tmpdir(), `claude-terminal-named-${tabId}`);
-  fs.unlink(flagFile, () => {}); // best-effort, ignore errors
+  try { fs.unlinkSync(flagFile); } catch {} // best-effort, ignore errors
 }
 
 // ---------------------------------------------------------------------------
@@ -185,38 +185,44 @@ function generateTabName(tabId: string, prompt: string) {
 
 // ---------------------------------------------------------------------------
 // Hook message handling (from named-pipe IPC server)
-// ---------------------------------------------------------------------------
-// Pending tab close timeouts — allows cancellation when /clear triggers
-// SessionEnd followed by SessionStart for the same tab.
-const pendingCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
 function handleHookMessage(msg: IpcMessage) {
   const { tabId, event, data } = msg;
   log.debug('[hook]', event, tabId, data ? data.substring(0, 80) : null);
   const tab = tabManager.getTab(tabId);
-  if (!tab && event !== 'tab:closed') return;
+  if (!tab) return;
 
   const isActive = tabManager.getActiveTabId() === tabId;
 
   switch (event) {
-    case 'tab:ready':
-      // Cancel any pending close (e.g. /clear triggers SessionEnd then SessionStart)
-      if (pendingCloseTimers.has(tabId)) {
-        clearTimeout(pendingCloseTimers.get(tabId));
-        pendingCloseTimers.delete(tabId);
-        log.info('[tab:ready] cancelled pending close for', tabId, '(session cleared)');
-        // Reset tab name and naming flag so auto-naming triggers on next prompt
+    case 'tab:ready': {
+      // data is JSON: { sessionId, source } where source is "startup"|"resume"|"clear"
+      let sessionId = '';
+      let source = '';
+      try {
+        const parsed = JSON.parse(data ?? '');
+        sessionId = parsed.sessionId || '';
+        source = parsed.source || '';
+      } catch {
+        // Legacy fallback: data was just the sessionId string
+        sessionId = data ?? '';
+      }
+      log.info('[tab:ready]', tabId, 'sessionId:', sessionId, 'source:', source);
+
+      // Only reset tab name on /clear (source === "clear").
+      // Previously we checked tab.sessionId which also triggered on --resume
+      // (which fires two SessionStart events: "startup" then "resume").
+      if (source === 'clear') {
+        log.info('[tab:ready] /clear detected for', tabId, '— resetting name');
         tabManager.resetName(tabId);
         cleanupNamingFlag(tabId);
       }
+
       tabManager.updateStatus(tabId, 'new');
-      if (data) {
-        tabManager.setSessionId(tabId, data);
-        log.info('[tab:ready] sessionId set for', tabId, '→', data);
-      } else {
-        log.warn('[tab:ready] no sessionId received for', tabId);
+      if (sessionId) {
+        tabManager.setSessionId(tabId, sessionId);
       }
       break;
+    }
 
     case 'tab:status:working':
       tabManager.updateStatus(tabId, 'working');
@@ -236,24 +242,12 @@ function handleHookMessage(msg: IpcMessage) {
       }
       break;
 
-    case 'tab:closed': {
-      // Debounce: /clear triggers SessionEnd then SessionStart in quick
-      // succession.  Wait briefly before actually tearing down the tab so
-      // a follow-up tab:ready can cancel the close.
-      if (pendingCloseTimers.has(tabId)) {
-        clearTimeout(pendingCloseTimers.get(tabId));
-      }
-      const closeTimer = setTimeout(() => {
-        pendingCloseTimers.delete(tabId);
-        log.info('[tab:closed] closing tab', tabId);
-        cleanupNamingFlag(tabId);
-        tabManager.removeTab(tabId);
-        ptyManager.kill(tabId);
-        sendToRenderer('tab:removed', tabId);
-      }, 2000);
-      pendingCloseTimers.set(tabId, closeTimer);
+    case 'tab:closed':
+      // SessionEnd hook fires on both /clear and real exit.  We don't act
+      // on it — proc.onExit() is the definitive signal for real exits, and
+      // /clear is handled by the follow-up tab:ready setting a new sessionId.
+      log.debug('[tab:closed] SessionEnd for', tabId, '(waiting for onExit or tab:ready)');
       return; // no tab:updated to send
-    }
 
     case 'tab:name':
       if (data) {
@@ -353,16 +347,13 @@ function registerIpcHandlers() {
       sendToRenderer('pty:data', tab.id, data);
     });
 
-    // When the PTY exits, clean up.
+    // When the PTY exits, clean up (only if tab wasn't already closed via IPC).
     proc.onExit(() => {
-      // Cancel any pending debounced close from hook — PTY exit is definitive.
-      if (pendingCloseTimers.has(tab.id)) {
-        clearTimeout(pendingCloseTimers.get(tab.id));
-        pendingCloseTimers.delete(tab.id);
+      if (tabManager.getTab(tab.id)) {
+        cleanupNamingFlag(tab.id);
+        tabManager.removeTab(tab.id);
+        sendToRenderer('tab:removed', tab.id);
       }
-      cleanupNamingFlag(tab.id);
-      tabManager.removeTab(tab.id);
-      sendToRenderer('tab:removed', tab.id);
     });
 
     // Set as active if it's the first tab.
