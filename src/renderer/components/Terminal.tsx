@@ -13,6 +13,20 @@ interface TerminalProps {
 // Cache terminals per tabId so switching tabs preserves scrollback
 const terminalCache = new Map<string, { term: XTerm; fitAddon: FitAddon }>();
 
+// Single global PTY data listener (registered once, not per component)
+let ptyListenerRegistered = false;
+
+function ensurePtyListener(): void {
+  if (ptyListenerRegistered) return;
+  ptyListenerRegistered = true;
+  window.claudeTerminal.onPtyData((dataTabId, data) => {
+    const cached = terminalCache.get(dataTabId);
+    if (cached) {
+      cached.term.write(data);
+    }
+  });
+}
+
 export function destroyTerminal(tabId: string): void {
   const cached = terminalCache.get(tabId);
   if (cached) {
@@ -76,6 +90,9 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
 
     const { term, fitAddon } = cached;
 
+    // Ensure the global PTY data listener is registered
+    ensurePtyListener();
+
     // If already attached to this container, just fit
     if (attachedRef.current === tabId && container.querySelector('.xterm')) {
       fitAddon.fit();
@@ -85,6 +102,16 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
     // Clear container and attach
     container.innerHTML = '';
     term.open(container);
+
+    // Right-click copies selected text to clipboard
+    const handleContextMenu = (e: MouseEvent) => {
+      const selection = term.getSelection();
+      if (selection) {
+        e.preventDefault();
+        navigator.clipboard.writeText(selection);
+      }
+    };
+    container.addEventListener('contextmenu', handleContextMenu);
 
     // Try to load WebGL addon (falls back gracefully)
     try {
@@ -108,19 +135,9 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
 
     return () => {
       resizeObserver.disconnect();
+      container.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [tabId, isVisible]);
-
-  // Listen for PTY data
-  useEffect(() => {
-    const cleanup = window.claudeTerminal.onPtyData((dataTabId, data) => {
-      const cached = terminalCache.get(dataTabId);
-      if (cached) {
-        cached.term.write(data);
-      }
-    });
-    return cleanup;
-  }, []);
 
   return (
     <div
