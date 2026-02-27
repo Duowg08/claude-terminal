@@ -13,6 +13,7 @@ import { HookInstaller } from './hook-installer';
 import { SettingsStore } from './settings-store';
 import { PIPE_NAME, PERMISSION_FLAGS, IpcMessage } from '@shared/types';
 import type { PermissionMode } from '@shared/types';
+import { log } from './logger';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -81,6 +82,8 @@ const createWindow = () => {
     mainWindow.webContents.openDevTools();
   }
 
+  mainWindow.webContents.on('did-finish-load', () => log.attach(mainWindow!));
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -128,6 +131,7 @@ function cleanupNamingFlag(tabId: string) {
 // Helper: generate a smart tab name using Claude Haiku
 // ---------------------------------------------------------------------------
 function generateTabName(tabId: string, prompt: string) {
+  log.debug('[generateTabName] starting for tab', tabId, 'prompt:', prompt.substring(0, 80));
   const namePrompt = `Generate a short tab title (3-5 words) for a coding conversation that starts with this message. Reply with ONLY the title, no quotes, no punctuation:\n\n${prompt}`;
 
   const isWindows = process.platform === 'win32';
@@ -136,11 +140,14 @@ function generateTabName(tabId: string, prompt: string) {
     ? ['/c', 'claude', '-p', '--model', 'claude-haiku-4-5-20251001']
     : ['-p', '--model', 'claude-haiku-4-5-20251001'];
 
-  const child = execFile(cmd, args, { timeout: 30000 }, (err, stdout) => {
+  log.debug('[generateTabName] spawning:', cmd, args.join(' '));
+  const child = execFile(cmd, args, { timeout: 30000 }, (err, stdout, stderr) => {
     if (err) {
-      console.debug('[generateTabName] failed for tab %s: %s', tabId, err.message);
+      log.error('[generateTabName] FAILED:', err.message);
+      log.error('[generateTabName] stderr:', stderr);
       return;
     }
+    log.debug('[generateTabName] stdout:', JSON.stringify(stdout));
 
     const name = stdout.trim().replace(/^["']|["']$/g, '').substring(0, 50);
     if (!name) return;
@@ -164,6 +171,7 @@ function generateTabName(tabId: string, prompt: string) {
 // ---------------------------------------------------------------------------
 function handleHookMessage(msg: IpcMessage) {
   const { tabId, event, data } = msg;
+  log.debug('[hook]', event, tabId, data ? data.substring(0, 80) : null);
   const tab = tabManager.getTab(tabId);
   if (!tab && event !== 'tab:closed') return;
 
@@ -238,8 +246,15 @@ function registerIpcHandlers() {
       settings.addRecentDir(dir);
       settings.setPermissionMode(mode);
       worktreeManager = new WorktreeManager(dir);
-      const hooksDir = path.join(app.getAppPath(), 'src', 'hooks');
-      hookInstaller = new HookInstaller(hooksDir);
+      // In dev, __dirname is .vite/build/ — go up to project root.
+      // In production, hooks are copied to resources/hooks/ by forge config.
+      const projectRoot = app.isPackaged
+        ? path.join(process.resourcesPath, 'hooks')
+        : path.join(__dirname, '..', '..', 'src', 'hooks');
+      log.debug('[session:start] __dirname:', __dirname);
+      log.debug('[session:start] hooksDir:', projectRoot);
+      log.debug('[session:start] hooks exist:', fs.existsSync(path.join(projectRoot, 'pipe-send.js')));
+      hookInstaller = new HookInstaller(projectRoot);
     },
   );
 
@@ -250,7 +265,7 @@ function registerIpcHandlers() {
 
     // Install hooks so Claude Code can communicate back to us.
     if (hookInstaller) {
-      hookInstaller.install(cwd, tab.id);
+      hookInstaller.install(cwd);
     }
 
     // Build claude CLI arguments.
@@ -384,8 +399,9 @@ app.on('ready', async () => {
   // Start the named-pipe IPC server for hook communication.
   try {
     await ipcServer.start();
+    log.info('[ipc-server] listening on pipe');
   } catch (err) {
-    console.error('Failed to start IPC server:', err);
+    log.error('[ipc-server] FAILED to start:', String(err));
   }
 
   ipcServer.onMessage(handleHookMessage);
