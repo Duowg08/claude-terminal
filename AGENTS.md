@@ -65,6 +65,10 @@ pnpm run test           # Single run
 pnpm run test:watch     # Watch mode
 ```
 
+## Rules
+
+- **NEVER merge worktree branches into master (or any other branch) without explicit user permission.** Worktrees are isolated for a reason. Always ask before merging, rebasing, or otherwise integrating worktree branches.
+
 ## Common Patterns
 
 - **Path aliases**: `@shared/*` -> `src/shared/*`, `@main/*` -> `src/main/*` (configured in tsconfig.json, vitest.config.ts, vite.main.config.mjs)
