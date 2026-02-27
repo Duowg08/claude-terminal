@@ -3,6 +3,13 @@ TAB_ID="$1"
 PIPE_NAME="$2"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Only name the tab on the first prompt
+FLAG_FILE="/tmp/claude-terminal-named-${TAB_ID}"
+if [ -f "$FLAG_FILE" ]; then
+  exit 0
+fi
+touch "$FLAG_FILE"
+
 # Read the prompt from stdin JSON
 INPUT=$(cat)
 PROMPT=$(echo "$INPUT" | node -e "
@@ -12,11 +19,11 @@ PROMPT=$(echo "$INPUT" | node -e "
     try{
       const j=JSON.parse(d);
       const p=j.user_prompt||j.prompt||'';
-      process.stdout.write(p.substring(0,40).replace(/\s+\S*$/,''));
+      process.stdout.write(p.substring(0,500));
     }catch{process.stdout.write('')}
   });
 " 2>/dev/null)
 
 if [ -n "$PROMPT" ]; then
-  bash "$SCRIPT_DIR/pipe-send.sh" "$TAB_ID" "$PIPE_NAME" "tab:name" "$PROMPT"
+  bash "$SCRIPT_DIR/pipe-send.sh" "$TAB_ID" "$PIPE_NAME" "tab:generate-name" "$PROMPT"
 fi
