@@ -9,9 +9,9 @@ export class TabManager {
   private activeTabId: string | null = null;
   private nextTabNum = 1;
 
-  createTab(cwd: string, worktree: string | null): Tab {
+  createTab(cwd: string, worktree: string | null, savedName?: string): Tab {
     const id = generateId();
-    const name = worktree ?? `Tab ${this.nextTabNum++}`;
+    const name = savedName ?? worktree ?? `Tab ${this.nextTabNum++}`;
     const tab: Tab = { id, name, status: 'new', worktree, cwd, pid: null, sessionId: null };
     this.tabs.set(id, tab);
     if (!this.activeTabId) {

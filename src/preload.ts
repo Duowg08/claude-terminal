@@ -3,8 +3,8 @@ import type { PermissionMode, Tab, SavedTab } from './shared/types';
 
 const api = {
   // Tab operations
-  createTab: (worktree: string | null, resumeSessionId?: string): Promise<Tab> =>
-    ipcRenderer.invoke('tab:create', worktree, resumeSessionId),
+  createTab: (worktree: string | null, resumeSessionId?: string, savedName?: string): Promise<Tab> =>
+    ipcRenderer.invoke('tab:create', worktree, resumeSessionId, savedName),
   closeTab: (tabId: string): Promise<void> =>
     ipcRenderer.invoke('tab:close', tabId),
   switchTab: (tabId: string): Promise<void> =>

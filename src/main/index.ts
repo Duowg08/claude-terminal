@@ -301,9 +301,16 @@ function registerIpcHandlers() {
   });
 
   // ---- Tabs ----
-  ipcMain.handle('tab:create', async (_event, worktree: string | null, resumeSessionId?: string) => {
+  ipcMain.handle('tab:create', async (_event, worktree: string | null, resumeSessionId?: string, savedName?: string) => {
     const cwd = worktree ?? workspaceDir!;
-    const tab = tabManager.createTab(cwd, worktree);
+    const tab = tabManager.createTab(cwd, worktree, savedName);
+
+    // If restoring with a saved name, pre-create the naming flag so the
+    // on-prompt-submit hook skips auto-naming for this tab.
+    if (savedName) {
+      const flagFile = path.join(os.tmpdir(), `claude-terminal-named-${tab.id}`);
+      fs.writeFileSync(flagFile, '');
+    }
 
     // Install hooks so Claude Code can communicate back to us.
     if (hookInstaller) {

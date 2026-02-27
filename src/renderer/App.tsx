@@ -34,7 +34,7 @@ export default function App() {
       const savedTabs = await window.claudeTerminal.getSavedTabs(cliDir);
       if (savedTabs.length > 0) {
         for (const saved of savedTabs) {
-          const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId);
+          const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name);
           setActiveTabId(tab.id);
         }
       }
@@ -160,7 +160,7 @@ export default function App() {
     if (savedTabs.length > 0) {
       // Restore saved tabs with --resume
       for (const saved of savedTabs) {
-        const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId);
+        const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name);
         setActiveTabId(tab.id);
       }
     }
