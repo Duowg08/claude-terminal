@@ -11,8 +11,9 @@ export class TabManager {
 
   createTab(cwd: string, worktree: string | null, savedName?: string): Tab {
     const id = generateId();
-    const name = savedName ?? worktree ?? `Tab ${this.nextTabNum++}`;
-    const tab: Tab = { id, name, status: 'new', worktree, cwd, pid: null, sessionId: null };
+    const defaultName = worktree ?? `Tab ${this.nextTabNum++}`;
+    const name = savedName ?? defaultName;
+    const tab: Tab = { id, name, defaultName, status: 'new', worktree, cwd, pid: null, sessionId: null };
     this.tabs.set(id, tab);
     if (!this.activeTabId) {
       this.activeTabId = id;
@@ -36,6 +37,11 @@ export class TabManager {
   rename(id: string, name: string): void {
     const tab = this.tabs.get(id);
     if (tab) tab.name = name;
+  }
+
+  resetName(id: string): void {
+    const tab = this.tabs.get(id);
+    if (tab) tab.name = tab.defaultName;
   }
 
   setSessionId(id: string, sessionId: string): void {

@@ -10,6 +10,7 @@ describe('shared types', () => {
     const tab: Tab = {
       id: 'tab-1',
       name: 'Tab 1',
+      defaultName: 'Tab 1',
       status: 'new',
       worktree: null,
       cwd: '/some/path',

@@ -200,7 +200,10 @@ function handleHookMessage(msg: IpcMessage) {
       if (pendingCloseTimers.has(tabId)) {
         clearTimeout(pendingCloseTimers.get(tabId));
         pendingCloseTimers.delete(tabId);
-        log.info('[tab:ready] cancelled pending close for', tabId);
+        log.info('[tab:ready] cancelled pending close for', tabId, '(session cleared)');
+        // Reset tab name and naming flag so auto-naming triggers on next prompt
+        tabManager.resetName(tabId);
+        cleanupNamingFlag(tabId);
       }
       tabManager.updateStatus(tabId, 'new');
       if (data) {

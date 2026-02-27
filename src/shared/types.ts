@@ -5,6 +5,7 @@ export type PermissionMode = 'default' | 'plan' | 'acceptEdits' | 'bypassPermiss
 export interface Tab {
   id: string;
   name: string;
+  defaultName: string;
   status: TabStatus;
   worktree: string | null;
   cwd: string;
