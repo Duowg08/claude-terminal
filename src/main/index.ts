@@ -64,6 +64,8 @@ const createWindow = () => {
     },
   });
 
+  const workingDir = path.resolve(cliStartDir || process.cwd());
+
   // Load the renderer from the Vite dev server or production bundle.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -72,6 +74,11 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
+
+  // Set title after page loads so it doesn't get overwritten by the HTML <title>.
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.setTitle(`ClaudeTerminal - ${workingDir}`);
+  });
 
   // Open DevTools in development with Ctrl+Shift+I.
   if (process.env.NODE_ENV === 'development') {
@@ -193,6 +200,12 @@ function registerIpcHandlers() {
       hookInstaller = new HookInstaller(hooksDir);
     },
   );
+
+  ipcMain.handle('session:getSavedTabs', async (_event, dir: string) => {
+    const saved = settings.getSessions(dir);
+    settings.clearSessions(dir);
+    return saved;
+  });
 
   // ---- Tabs ----
   ipcMain.handle('tab:create', async (_event, worktree: string | null, resumeSessionId?: string) => {

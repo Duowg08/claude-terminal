@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PermissionMode, Tab } from '../shared/types';
 import StartupDialog from './components/StartupDialog';
 import TabBar from './components/TabBar';
-import Terminal, { destroyTerminal } from './components/Terminal';
+import Terminal from './components/Terminal';
+import { destroyTerminal } from './components/terminalCache';
 import StatusBar from './components/StatusBar';
 import NewTabDialog from './components/NewTabDialog';
 
@@ -13,8 +14,10 @@ export default function App() {
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showNewTabDialog, setShowNewTabDialog] = useState(false);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
 
-  // Listen for tab updates from main process
+  // Listen for tab updates from main process (registered once)
   useEffect(() => {
     const cleanupUpdate = window.claudeTerminal.onTabUpdate((tab) => {
       setTabs((prev) => {
@@ -33,8 +36,8 @@ export default function App() {
       setTabs((prev) => prev.filter((t) => t.id !== tabId));
       setActiveTabId((prev) => {
         if (prev === tabId) {
-          // Switch to another tab
-          const remaining = tabs.filter((t) => t.id !== tabId);
+          // Switch to another tab (use ref to avoid stale closure)
+          const remaining = tabsRef.current.filter((t) => t.id !== tabId);
           return remaining.length > 0 ? remaining[0].id : null;
         }
         return prev;
@@ -45,7 +48,7 @@ export default function App() {
       cleanupUpdate();
       cleanupRemoved();
     };
-  }, [tabs]);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -112,12 +115,26 @@ export default function App() {
 
   const handleStartSession = async (dir: string, mode: PermissionMode) => {
     await window.claudeTerminal.startSession(dir, mode);
-    // Load initial tabs
+
+    // Check for saved tabs from a previous session in this directory
+    const savedTabs = await window.claudeTerminal.getSavedTabs(dir);
+
+    if (savedTabs.length > 0) {
+      // Restore saved tabs with --resume
+      for (const saved of savedTabs) {
+        const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId);
+        setActiveTabId(tab.id);
+      }
+    }
+
+    // Load all tabs (includes any just-created ones)
     const allTabs = await window.claudeTerminal.getTabs();
     const activeId = await window.claudeTerminal.getActiveTabId();
     setTabs(allTabs);
     setActiveTabId(activeId);
     setAppState('running');
+
+    // Only show new tab dialog if no tabs were restored
     if (allTabs.length === 0) {
       setShowNewTabDialog(true);
     }

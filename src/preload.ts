@@ -1,10 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { PermissionMode, Tab } from './shared/types';
+import type { PermissionMode, Tab, SavedTab } from './shared/types';
 
 const api = {
   // Tab operations
-  createTab: (worktree: string | null): Promise<Tab> =>
-    ipcRenderer.invoke('tab:create', worktree),
+  createTab: (worktree: string | null, resumeSessionId?: string): Promise<Tab> =>
+    ipcRenderer.invoke('tab:create', worktree, resumeSessionId),
   closeTab: (tabId: string): Promise<void> =>
     ipcRenderer.invoke('tab:close', tabId),
   switchTab: (tabId: string): Promise<void> =>
@@ -39,6 +39,8 @@ const api = {
     ipcRenderer.invoke('dialog:selectDirectory'),
   startSession: (dir: string, mode: PermissionMode): Promise<void> =>
     ipcRenderer.invoke('session:start', dir, mode),
+  getSavedTabs: (dir: string): Promise<SavedTab[]> =>
+    ipcRenderer.invoke('session:getSavedTabs', dir),
   getCliStartDir: (): Promise<string | null> =>
     ipcRenderer.invoke('cli:getStartDir'),
 
