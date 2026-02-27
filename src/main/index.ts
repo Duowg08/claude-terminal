@@ -1,17 +1,61 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Notification } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+
+import { TabManager } from './tab-manager';
+import { PtyManager } from './pty-manager';
+import { WorktreeManager } from './worktree-manager';
+import { HookIpcServer } from './ipc-server';
+import { HookInstaller } from './hook-installer';
+import { SettingsStore } from './settings-store';
+import { PIPE_NAME, PERMISSION_FLAGS, IpcMessage } from '@shared/types';
+import type { PermissionMode } from '@shared/types';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
 
+// ---------------------------------------------------------------------------
+// Singletons
+// ---------------------------------------------------------------------------
+const tabManager = new TabManager();
+const ptyManager = new PtyManager();
+const settings = new SettingsStore();
+const ipcServer = new HookIpcServer(PIPE_NAME);
+
+let worktreeManager: WorktreeManager | null = null;
+let hookInstaller: HookInstaller | null = null;
+let mainWindow: BrowserWindow | null = null;
+let workspaceDir: string | null = null;
+let permissionMode: PermissionMode = 'bypassPermissions';
+
+// ---------------------------------------------------------------------------
+// CLI argument parsing
+// ---------------------------------------------------------------------------
+function parseCliStartDir(): string | null {
+  // Look for a path argument in process.argv that isn't a flag and doesn't
+  // look like part of the Electron / Forge launcher path.
+  for (const arg of process.argv.slice(1)) {
+    if (arg.startsWith('-')) continue;
+    if (arg.toLowerCase().includes('electron')) continue;
+    // Skip common Forge / Vite dev paths
+    if (arg.includes('.vite') || arg.includes('node_modules')) continue;
+    // Treat anything remaining as a directory path
+    return arg;
+  }
+  return null;
+}
+
+const cliStartDir = parseCliStartDir();
+
+// ---------------------------------------------------------------------------
+// Window creation
+// ---------------------------------------------------------------------------
 const createWindow = () => {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -20,7 +64,7 @@ const createWindow = () => {
     },
   });
 
-  // and load the index.html of the app.
+  // Load the renderer from the Vite dev server or production bundle.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -29,33 +73,284 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools in development.
+  // Open DevTools in development.
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 };
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.on('ready', createWindow);
-
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+// ---------------------------------------------------------------------------
+// Helper: send event to renderer
+// ---------------------------------------------------------------------------
+function sendToRenderer(channel: string, ...args: unknown[]) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: show notification for background tab activity
+// ---------------------------------------------------------------------------
+function notifyTabActivity(tabId: string, title: string, body: string) {
+  if (!Notification.isSupported()) return;
+
+  const notification = new Notification({ title, body });
+  notification.on('click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+    tabManager.setActiveTab(tabId);
+    const tab = tabManager.getTab(tabId);
+    if (tab) {
+      sendToRenderer('tab:updated', tab);
+    }
+  });
+  notification.show();
+}
+
+// ---------------------------------------------------------------------------
+// Hook message handling (from named-pipe IPC server)
+// ---------------------------------------------------------------------------
+function handleHookMessage(msg: IpcMessage) {
+  const { tabId, event, data } = msg;
+  const tab = tabManager.getTab(tabId);
+  if (!tab && event !== 'tab:closed') return;
+
+  const isActive = tabManager.getActiveTabId() === tabId;
+
+  switch (event) {
+    case 'tab:ready':
+      tabManager.updateStatus(tabId, 'new');
+      break;
+
+    case 'tab:status:working':
+      tabManager.updateStatus(tabId, 'working');
+      break;
+
+    case 'tab:status:idle':
+      tabManager.updateStatus(tabId, 'idle');
+      if (!isActive && tab) {
+        notifyTabActivity(tabId, tab.name, 'Claude has finished working');
+      }
+      break;
+
+    case 'tab:status:input':
+      tabManager.updateStatus(tabId, 'requires_response');
+      if (!isActive && tab) {
+        notifyTabActivity(tabId, tab.name, 'Claude needs your input');
+      }
+      break;
+
+    case 'tab:closed':
+      tabManager.removeTab(tabId);
+      ptyManager.kill(tabId);
+      sendToRenderer('tab:removed', tabId);
+      return; // no tab:updated to send
+
+    case 'tab:name':
+      if (data) {
+        tabManager.rename(tabId, data);
+      }
+      break;
+
+    default:
+      return;
+  }
+
+  // Broadcast updated tab state to the renderer.
+  const updated = tabManager.getTab(tabId);
+  if (updated) {
+    sendToRenderer('tab:updated', updated);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// IPC handlers (invoke = async request/response)
+// ---------------------------------------------------------------------------
+function registerIpcHandlers() {
+  // ---- Session ----
+  ipcMain.handle(
+    'session:start',
+    async (_event, dir: string, mode: PermissionMode) => {
+      workspaceDir = dir;
+      permissionMode = mode;
+      settings.addRecentDir(dir);
+      settings.setPermissionMode(mode);
+      worktreeManager = new WorktreeManager(dir);
+      const hooksDir = path.join(app.getAppPath(), 'src', 'hooks');
+      hookInstaller = new HookInstaller(hooksDir);
+    },
+  );
+
+  // ---- Tabs ----
+  ipcMain.handle('tab:create', async (_event, worktree: string | null) => {
+    const cwd = worktree ?? workspaceDir!;
+    const tab = tabManager.createTab(cwd, worktree);
+
+    // Install hooks so Claude Code can communicate back to us.
+    if (hookInstaller) {
+      hookInstaller.install(cwd, tab.id);
+    }
+
+    // Build claude CLI arguments.
+    const args: string[] = [...(PERMISSION_FLAGS[permissionMode] ?? [])];
+
+    // Extra env vars so hooks know which pipe to talk to.
+    const extraEnv: Record<string, string> = {
+      CLAUDE_TERMINAL_TAB_ID: tab.id,
+      CLAUDE_TERMINAL_PIPE: PIPE_NAME,
+    };
+
+    // Spawn the Claude PTY.
+    const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
+    tab.pid = proc.pid;
+
+    // Forward PTY output to the renderer.
+    proc.onData((data: string) => {
+      sendToRenderer('pty:data', tab.id, data);
+    });
+
+    // When the PTY exits, clean up.
+    proc.onExit(() => {
+      tabManager.removeTab(tab.id);
+      sendToRenderer('tab:removed', tab.id);
+    });
+
+    // Set as active if it's the first tab.
+    if (tabManager.getAllTabs().length === 1) {
+      tabManager.setActiveTab(tab.id);
+    }
+
+    sendToRenderer('tab:updated', tab);
+    return tab;
+  });
+
+  ipcMain.handle('tab:close', async (_event, tabId: string) => {
+    ptyManager.kill(tabId);
+    const tab = tabManager.getTab(tabId);
+    if (tab?.worktree && worktreeManager) {
+      try {
+        worktreeManager.remove(tab.worktree);
+      } catch {
+        // worktree removal is best-effort
+      }
+    }
+    tabManager.removeTab(tabId);
+    sendToRenderer('tab:removed', tabId);
+  });
+
+  ipcMain.handle('tab:switch', async (_event, tabId: string) => {
+    tabManager.setActiveTab(tabId);
+  });
+
+  ipcMain.handle(
+    'tab:rename',
+    async (_event, tabId: string, name: string) => {
+      tabManager.rename(tabId, name);
+      const tab = tabManager.getTab(tabId);
+      if (tab) {
+        sendToRenderer('tab:updated', tab);
+      }
+    },
+  );
+
+  ipcMain.handle('tab:getAll', async () => {
+    return tabManager.getAllTabs();
+  });
+
+  ipcMain.handle('tab:getActiveId', async () => {
+    return tabManager.getActiveTabId();
+  });
+
+  // ---- Worktree ----
+  ipcMain.handle('worktree:create', async (_event, name: string) => {
+    if (!worktreeManager) throw new Error('Session not started');
+    return worktreeManager.create(name);
+  });
+
+  ipcMain.handle('worktree:currentBranch', async () => {
+    if (!worktreeManager) throw new Error('Session not started');
+    return worktreeManager.getCurrentBranch();
+  });
+
+  // ---- Settings ----
+  ipcMain.handle('settings:recentDirs', async () => {
+    return settings.getRecentDirs();
+  });
+
+  ipcMain.handle('settings:permissionMode', async () => {
+    return settings.getPermissionMode();
+  });
+
+  // ---- Dialog ----
+  ipcMain.handle('dialog:selectDirectory', async () => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  // ---- CLI ----
+  ipcMain.handle('cli:getStartDir', async () => {
+    return cliStartDir;
+  });
+
+  // ---- PTY (fire-and-forget via ipcMain.on) ----
+  ipcMain.on('pty:write', (_event, tabId: string, data: string) => {
+    ptyManager.write(tabId, data);
+  });
+
+  ipcMain.on(
+    'pty:resize',
+    (_event, tabId: string, cols: number, rows: number) => {
+      ptyManager.resize(tabId, cols, rows);
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// App lifecycle
+// ---------------------------------------------------------------------------
+app.on('ready', async () => {
+  // Start the named-pipe IPC server for hook communication.
+  try {
+    await ipcServer.start();
+  } catch (err) {
+    console.error('Failed to start IPC server:', err);
+  }
+
+  ipcServer.onMessage(handleHookMessage);
+
+  registerIpcHandlers();
+  createWindow();
+});
+
+app.on('window-all-closed', async () => {
+  ptyManager.killAll();
+  try {
+    await ipcServer.stop();
+  } catch {
+    // best-effort cleanup
+  }
+  app.quit();
 });
 
 app.on('activate', () => {
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
+  // On macOS re-create the window when the dock icon is clicked.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+// ---------------------------------------------------------------------------
+// Forge Vite plugin globals (injected at build time)
+// ---------------------------------------------------------------------------
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
+declare const MAIN_WINDOW_VITE_NAME: string;
