@@ -193,6 +193,9 @@ function handleHookMessage(msg: IpcMessage) {
       tabManager.updateStatus(tabId, 'new');
       if (data) {
         tabManager.setSessionId(tabId, data);
+        log.info('[tab:ready] sessionId set for', tabId, '→', data);
+      } else {
+        log.warn('[tab:ready] no sessionId received for', tabId);
       }
       break;
 
@@ -429,8 +432,11 @@ app.on('ready', async () => {
 
 app.on('window-all-closed', async () => {
   // Save tab sessions before cleanup
+  const allTabs = tabManager.getAllTabs();
+  log.info('[quit] workspaceDir:', workspaceDir, 'tabs:', allTabs.length,
+    'sessionIds:', allTabs.map(t => t.sessionId ?? 'null').join(', '));
   if (workspaceDir) {
-    const savedTabs = tabManager.getAllTabs()
+    const savedTabs = allTabs
       .filter(t => t.sessionId)
       .map(t => ({
         name: t.name,
@@ -438,6 +444,7 @@ app.on('window-all-closed', async () => {
         worktree: t.worktree,
         sessionId: t.sessionId!,
       }));
+    log.info('[quit] saving', savedTabs.length, 'tabs to', workspaceDir);
     if (savedTabs.length > 0) {
       settings.saveSessions(workspaceDir, savedTabs);
     }

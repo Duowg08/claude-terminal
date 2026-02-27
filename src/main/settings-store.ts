@@ -4,17 +4,17 @@ import { app } from 'electron';
 import { PermissionMode, SavedTab } from '@shared/types';
 
 const MAX_RECENT_DIRS = 10;
+const SESSIONS_DIR = '.claude-terminal';
+const SESSIONS_FILE = 'sessions.json';
 
 interface StoreData {
   recentDirs: string[];
   permissionMode: PermissionMode;
-  sessions: Record<string, SavedTab[]>;
 }
 
 const DEFAULTS: StoreData = {
   recentDirs: [],
   permissionMode: 'bypassPermissions',
-  sessions: {},
 };
 
 export class SettingsStore {
@@ -61,17 +61,32 @@ export class SettingsStore {
     this.save();
   }
 
+  // --- Per-directory session persistence (stored in <dir>/.claude-terminal/sessions.json) ---
+
+  private sessionsPath(dir: string): string {
+    return path.join(dir, SESSIONS_DIR, SESSIONS_FILE);
+  }
+
   getSessions(dir: string): SavedTab[] {
-    return this.data.sessions[dir] ?? [];
+    try {
+      const raw = fs.readFileSync(this.sessionsPath(dir), 'utf-8');
+      return JSON.parse(raw) as SavedTab[];
+    } catch {
+      return [];
+    }
   }
 
   saveSessions(dir: string, tabs: SavedTab[]): void {
-    this.data.sessions[dir] = tabs;
-    this.save();
+    const sessDir = path.join(dir, SESSIONS_DIR);
+    fs.mkdirSync(sessDir, { recursive: true });
+    fs.writeFileSync(this.sessionsPath(dir), JSON.stringify(tabs, null, 2), 'utf-8');
   }
 
   clearSessions(dir: string): void {
-    delete this.data.sessions[dir];
-    this.save();
+    try {
+      fs.unlinkSync(this.sessionsPath(dir));
+    } catch {
+      // file may not exist
+    }
   }
 }

@@ -95,5 +95,8 @@ dist/
 # Claude Code local config
 .claude/
 
+# ClaudeTerminal per-directory session data
+.claude-terminal/
+
 # Git worktrees
 .worktrees/
