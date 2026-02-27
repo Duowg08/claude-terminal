@@ -8,7 +8,7 @@ import { IpcMessage } from '@shared/types';
 function execAsync(cmd: string, timeout = 10000): Promise<string> {
   return new Promise((resolve, reject) => {
     exec(cmd, { timeout, shell: 'bash' }, (err, stdout) => {
-      if (err && (err as NodeJS.ErrnoException).killed) {
+      if (err && err.killed) {
         reject(new Error(`Command timed out: ${cmd}`));
       } else if (err) {
         reject(err);

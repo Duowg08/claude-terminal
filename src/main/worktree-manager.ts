@@ -18,7 +18,7 @@ export class WorktreeManager {
       cwd: this.rootDir,
       encoding: 'utf-8',
     });
-    return (typeof result === 'string' ? result : result.toString()).trim();
+    return String(result).trim();
   }
 
   create(name: string): string {
@@ -49,12 +49,12 @@ export class WorktreeManager {
       cwd: this.rootDir,
       encoding: 'utf-8',
     });
-    const output = typeof result === 'string' ? result : result.toString();
+    const output = String(result);
     return output
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map((line) => {
+      .map((line: string) => {
         const match = line.match(/^(.+?)\s+\w+\s+\[(.+?)\]/);
         return match
           ? { path: match[1].trim(), branch: match[2] }

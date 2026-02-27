@@ -12,6 +12,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "jsx": "react-jsx",
+    "types": ["vitest/globals"],
     "paths": {
       "@shared/*": ["src/shared/*"],
       "@main/*": ["src/main/*"]
