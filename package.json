@@ -53,6 +53,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@lucide/lab": "^0.1.2",
     "electron-squirrel-startup": "^1.0.1",
     "node-pty": "^1.1.0"
   },
