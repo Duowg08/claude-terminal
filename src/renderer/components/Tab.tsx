@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { SquareTerminal, Terminal } from 'lucide-react';
 import type { Tab as TabType } from '../../shared/types';
 import TabIndicator from './TabIndicator';
 
@@ -97,7 +98,13 @@ export default function Tab({ tab, isActive, onClick, onClose, onRename, onOpenS
       onClick={onClick}
       onDoubleClick={handleDoubleClick}
     >
-      <TabIndicator status={tab.status} />
+      {tab.type === 'claude' ? (
+        <TabIndicator status={tab.status} />
+      ) : (
+        <span className="tab-indicator">
+          {tab.type === 'powershell' ? <SquareTerminal size={12} /> : <Terminal size={12} />}
+        </span>
+      )}
       {isRenaming ? (
         <input
           ref={inputRef}

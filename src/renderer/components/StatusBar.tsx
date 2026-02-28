@@ -32,7 +32,7 @@ export default function StatusBar({ tabs }: StatusBarProps) {
         })}
       </div>
       <span className="status-help">
-        Ctrl+T new | Ctrl+F4 close | Ctrl+Tab switch | F2 rename
+        Ctrl+T Claude | Ctrl+W Worktree | Ctrl+P PS | Ctrl+L WSL | Ctrl+F4 close | Ctrl+Tab switch | F2 rename
       </span>
     </div>
   );
