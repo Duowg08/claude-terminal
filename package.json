@@ -59,12 +59,14 @@
   },
   "dependencies": {
     "@lucide/lab": "^0.1.2",
+    "bufferutil": "^4.1.0",
     "cloudflared": "^0.7.1",
     "cross-spawn": "^7.0.6",
     "electron-squirrel-startup": "^1.0.1",
     "node-pty": "^1.1.0",
     "qrcode": "^1.5.4",
     "tree-kill": "^1.2.2",
+    "utf-8-validate": "^6.0.6",
     "ws": "^8.19.0"
   },
   "pnpm": {

@@ -103,16 +103,15 @@ export default function App() {
       if (cancelled) return;
 
       const savedTabs = await window.claudeTerminal.getSavedTabs(cliDir);
-      for (const saved of savedTabs) {
-        if (cancelled) return;
-        try {
-          const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name);
-          if (cancelled) return;
-          setActiveTabId(tab.id);
-        } catch {
-          // Worktree may have been removed — skip this tab
-        }
-      }
+      if (cancelled) return;
+
+      // Create all tabs in parallel for faster startup
+      await Promise.allSettled(
+        savedTabs.map(saved =>
+          window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name)
+        )
+      );
+      if (cancelled) return;
 
       const allTabs = await window.claudeTerminal.getTabs();
       const activeId = await window.claudeTerminal.getActiveTabId();
@@ -297,15 +296,12 @@ export default function App() {
     const savedTabs = await window.claudeTerminal.getSavedTabs(dir);
 
     if (savedTabs.length > 0) {
-      // Restore saved tabs with --resume
-      for (const saved of savedTabs) {
-        try {
-          const tab = await window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name);
-          setActiveTabId(tab.id);
-        } catch {
-          // Worktree may have been removed — skip this tab
-        }
-      }
+      // Create all tabs in parallel for faster startup
+      await Promise.allSettled(
+        savedTabs.map(saved =>
+          window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name)
+        )
+      );
     }
 
     // Load all tabs (includes any just-created ones)

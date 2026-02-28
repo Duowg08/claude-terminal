@@ -22,13 +22,39 @@ function pruneFiles(dir: string, test: (name: string) => boolean): void {
   }
 }
 
+/** Copy a native module into the build, strip junk files and cross-platform prebuilds. */
+function copyNativeModule(
+  moduleName: string,
+  buildPath: string,
+  platform: string,
+  arch: string,
+  cb: (err?: Error) => void,
+): void {
+  const src = path.join(__dirname, 'node_modules', moduleName);
+  const dest = path.join(buildPath, 'node_modules', moduleName);
+  fs.cp(src, dest, { recursive: true }, (err) => {
+    if (err) return cb(err);
+    pruneFiles(dest, (name) => junkPattern.test(name));
+    const prebuildsDir = path.join(dest, 'prebuilds');
+    const keepDir = `${platform}-${arch}`;
+    if (fs.existsSync(prebuildsDir)) {
+      for (const dir of fs.readdirSync(prebuildsDir)) {
+        if (dir !== keepDir) {
+          fs.rmSync(path.join(prebuildsDir, dir), { recursive: true });
+        }
+      }
+    }
+    cb();
+  });
+}
+
 const junkPattern = /\.(map|md|ts)$|^(LICENSE|LICENCE|CHANGELOG|CHANGES|HISTORY|AUTHORS|CONTRIBUTORS|README)(\..*)?$/i;
 
 const config: ForgeConfig = {
   packagerConfig: {
     icon: './assets/icon',
     asar: {
-      unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*,**/cloudflared/bin/**}',
+      unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*,**/bufferutil/**/*.node,**/utf-8-validate/**/*.node,**/cloudflared/bin/**}',
     },
     afterCopy: [
       // The Vite plugin only packages Vite build output, not node_modules.
@@ -36,90 +62,71 @@ const config: ForgeConfig = {
       // Uses callback style because electron-packager promisifies async functions,
       // which double-wraps Promises and causes a silent hang.
       (buildPath: string, _electronVersion: string, _platform: string, _arch: string, callback: (err?: Error) => void) => {
-        // 1. Copy node-pty native module (not bundled by Vite).
-        const ptySrc = path.join(__dirname, 'node_modules', 'node-pty');
-        const ptyDest = path.join(buildPath, 'node_modules', 'node-pty');
+        // Helper to run a series of (cb) => void steps sequentially.
+        const sequential = (steps: Array<(cb: (err?: Error) => void) => void>, done: (err?: Error) => void) => {
+          const next = (i: number) => {
+            if (i >= steps.length) return done();
+            steps[i]((err) => { if (err) return done(err); next(i + 1); });
+          };
+          next(0);
+        };
 
-        // 2. Copy renderer build output. The Vite plugin builds the renderer
-        //    under src/renderer/.vite/ (because vite.renderer.config has root:
-        //    './src/renderer'), but electron-packager only copies .vite/ from
-        //    the project root which only has main+preload.
         const rendererSrc = path.join(__dirname, 'src', 'renderer', '.vite', 'renderer');
         const rendererDest = path.join(buildPath, '.vite', 'renderer');
-
-        // 3. Copy hook scripts so the packaged app can find them at
-        //    process.resourcesPath/hooks/.
         const hooksSrc = path.join(__dirname, 'src', 'hooks');
         const hooksDest = path.join(buildPath, '..', 'hooks');
-
-        // 4. Strip unused Chromium locales (keep only en-US) — saves ~44 MB.
-        //    buildPath is resources/app, locales are at the top level next to resources.
         const localesDir = path.join(buildPath, '..', '..', 'locales');
-
-        // 6. Copy cloudflared package (uses __dirname to find its bin/, can't be bundled).
         const cfSrc = path.join(__dirname, 'node_modules', 'cloudflared');
         const cfDest = path.join(buildPath, 'node_modules', 'cloudflared');
+        const webClientSrc = path.join(__dirname, 'dist', 'web-client');
+        const webClientDest = path.join(buildPath, '..', 'web-client');
 
-        fs.cp(ptySrc, ptyDest, { recursive: true }, (err) => {
-          if (err) return callback(err);
-          // Strip junk files from copied node-pty
-          pruneFiles(ptyDest, (name) => junkPattern.test(name));
-          // Strip prebuilds for other platforms (keeps only current platform+arch)
-          const prebuildsDir = path.join(ptyDest, 'prebuilds');
-          const keepDir = `${_platform}-${_arch}`;
-          if (fs.existsSync(prebuildsDir)) {
-            for (const dir of fs.readdirSync(prebuildsDir)) {
-              if (dir !== keepDir) {
-                fs.rmSync(path.join(prebuildsDir, dir), { recursive: true });
-              }
-            }
-          }
-          fs.cp(cfSrc, cfDest, { recursive: true }, (cfErr) => {
-            if (cfErr) return callback(cfErr);
+        sequential([
+          // 1. Copy native modules (node-pty, bufferutil, utf-8-validate).
+          (cb) => copyNativeModule('node-pty', buildPath, _platform, _arch, cb),
+          (cb) => copyNativeModule('bufferutil', buildPath, _platform, _arch, cb),
+          (cb) => copyNativeModule('utf-8-validate', buildPath, _platform, _arch, cb),
+          // 2. Copy cloudflared package.
+          (cb) => fs.cp(cfSrc, cfDest, { recursive: true }, (err) => {
+            if (err) return cb(err);
             pruneFiles(cfDest, (name) => junkPattern.test(name));
-            fs.cp(rendererSrc, rendererDest, { recursive: true }, (err2) => {
-              if (err2) return callback(err2);
-              fs.cp(hooksSrc, hooksDest, { recursive: true }, (err3) => {
-                if (err3) return callback(err3);
-                // 5. Copy web client build output for remote access.
-                const webClientSrc = path.join(__dirname, 'dist', 'web-client');
-                const webClientDest = path.join(buildPath, '..', 'web-client');
-                const copyWebClient = (next: () => void) => {
-                  if (fs.existsSync(webClientSrc)) {
-                    fs.cp(webClientSrc, webClientDest, { recursive: true }, (err4) => {
-                      if (err4) return callback(err4);
-                      next();
-                    });
-                  } else {
-                    next(); // web client not built — skip (remote access won't work)
+            cb();
+          }),
+          // 3. Copy renderer build output.
+          (cb) => fs.cp(rendererSrc, rendererDest, { recursive: true }, cb),
+          // 4. Copy hook scripts.
+          (cb) => fs.cp(hooksSrc, hooksDest, { recursive: true }, cb),
+          // 5. Copy web client build output for remote access.
+          (cb) => {
+            if (fs.existsSync(webClientSrc)) {
+              fs.cp(webClientSrc, webClientDest, { recursive: true }, cb);
+            } else {
+              cb(); // web client not built — skip
+            }
+          },
+          // 6. Strip unused Chromium locales (keep only en-US) — saves ~44 MB.
+          (cb) => {
+            try {
+              if (fs.existsSync(localesDir)) {
+                for (const file of fs.readdirSync(localesDir)) {
+                  if (file !== 'en-US.pak') {
+                    fs.unlinkSync(path.join(localesDir, file));
                   }
-                };
-                copyWebClient(() => {
-                  // Strip locales
-                  try {
-                    if (fs.existsSync(localesDir)) {
-                      for (const file of fs.readdirSync(localesDir)) {
-                        if (file !== 'en-US.pak') {
-                          fs.unlinkSync(path.join(localesDir, file));
-                        }
-                      }
-                    }
-                  } catch (e) {
-                    // Non-fatal: locale stripping is an optimization, not a requirement
-                  }
-                  callback();
-                }); // copyWebClient
-              });
-            });
-          }); // cloudflared
-        });
+                }
+              }
+            } catch (e) {
+              // Non-fatal: locale stripping is an optimization
+            }
+            cb();
+          },
+        ], callback);
       },
     ],
   },
   rebuildConfig: {
     // node-pty ships with N-API prebuilds that work across Node.js and Electron.
     // Skip rebuilding to avoid requiring Spectre-mitigated MSVC libraries.
-    ignoreModules: ['node-pty'],
+    ignoreModules: ['node-pty', 'bufferutil', 'utf-8-validate'],
   },
   makers: [
     new MakerSquirrel({

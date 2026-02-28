@@ -11,7 +11,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: ['node-pty', 'cloudflared'],
+      external: ['node-pty', 'cloudflared', 'bufferutil', 'utf-8-validate'],
     },
   },
 });
