@@ -28,7 +28,7 @@ const config: ForgeConfig = {
   packagerConfig: {
     icon: './assets/icon',
     asar: {
-      unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*}',
+      unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*,**/cloudflared/bin/**}',
     },
     afterCopy: [
       // The Vite plugin only packages Vite build output, not node_modules.
@@ -56,6 +56,10 @@ const config: ForgeConfig = {
         //    buildPath is resources/app, locales are at the top level next to resources.
         const localesDir = path.join(buildPath, '..', '..', 'locales');
 
+        // 6. Copy cloudflared package (uses __dirname to find its bin/, can't be bundled).
+        const cfSrc = path.join(__dirname, 'node_modules', 'cloudflared');
+        const cfDest = path.join(buildPath, 'node_modules', 'cloudflared');
+
         fs.cp(ptySrc, ptyDest, { recursive: true }, (err) => {
           if (err) return callback(err);
           // Strip junk files from copied node-pty
@@ -70,40 +74,44 @@ const config: ForgeConfig = {
               }
             }
           }
-          fs.cp(rendererSrc, rendererDest, { recursive: true }, (err2) => {
-            if (err2) return callback(err2);
-            fs.cp(hooksSrc, hooksDest, { recursive: true }, (err3) => {
-              if (err3) return callback(err3);
-              // 5. Copy web client build output for remote access.
-              const webClientSrc = path.join(__dirname, 'dist', 'web-client');
-              const webClientDest = path.join(buildPath, '..', 'web-client');
-              const copyWebClient = (next: () => void) => {
-                if (fs.existsSync(webClientSrc)) {
-                  fs.cp(webClientSrc, webClientDest, { recursive: true }, (err4) => {
-                    if (err4) return callback(err4);
-                    next();
-                  });
-                } else {
-                  next(); // web client not built — skip (remote access won't work)
-                }
-              };
-              copyWebClient(() => {
-              // Strip locales
-              try {
-                if (fs.existsSync(localesDir)) {
-                  for (const file of fs.readdirSync(localesDir)) {
-                    if (file !== 'en-US.pak') {
-                      fs.unlinkSync(path.join(localesDir, file));
-                    }
+          fs.cp(cfSrc, cfDest, { recursive: true }, (cfErr) => {
+            if (cfErr) return callback(cfErr);
+            pruneFiles(cfDest, (name) => junkPattern.test(name));
+            fs.cp(rendererSrc, rendererDest, { recursive: true }, (err2) => {
+              if (err2) return callback(err2);
+              fs.cp(hooksSrc, hooksDest, { recursive: true }, (err3) => {
+                if (err3) return callback(err3);
+                // 5. Copy web client build output for remote access.
+                const webClientSrc = path.join(__dirname, 'dist', 'web-client');
+                const webClientDest = path.join(buildPath, '..', 'web-client');
+                const copyWebClient = (next: () => void) => {
+                  if (fs.existsSync(webClientSrc)) {
+                    fs.cp(webClientSrc, webClientDest, { recursive: true }, (err4) => {
+                      if (err4) return callback(err4);
+                      next();
+                    });
+                  } else {
+                    next(); // web client not built — skip (remote access won't work)
                   }
-                }
-              } catch (e) {
-                // Non-fatal: locale stripping is an optimization, not a requirement
-              }
-              callback();
-              }); // copyWebClient
+                };
+                copyWebClient(() => {
+                  // Strip locales
+                  try {
+                    if (fs.existsSync(localesDir)) {
+                      for (const file of fs.readdirSync(localesDir)) {
+                        if (file !== 'en-US.pak') {
+                          fs.unlinkSync(path.join(localesDir, file));
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    // Non-fatal: locale stripping is an optimization, not a requirement
+                  }
+                  callback();
+                }); // copyWebClient
+              });
             });
-          });
+          }); // cloudflared
         });
       },
     ],
