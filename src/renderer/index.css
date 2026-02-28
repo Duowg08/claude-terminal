@@ -79,6 +79,7 @@ body {
 }
 .status-counts { display: flex; gap: 12px; align-items: center; }
 .status-count { display: inline-flex; align-items: center; gap: 3px; }
+.status-bar .tab-indicator { color: #fff; }
 .status-help { margin-left: auto; }
 
 .dialog-overlay {
