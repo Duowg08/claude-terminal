@@ -15,7 +15,9 @@ export class PtyManager {
     args: string[],
     extraEnv: Record<string, string>,
   ): pty.IPty {
-    const env = { ...process.env, ...extraEnv } as Record<string, string>;
+    const env = Object.fromEntries(
+      Object.entries({ ...process.env, ...extraEnv }).filter(([, v]) => v !== undefined),
+    ) as Record<string, string>;
 
     // On Windows, `claude` is a .cmd wrapper. node-pty can't resolve .cmd
     // files directly, so we spawn through the system shell.
