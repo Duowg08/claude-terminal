@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, Notification, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -65,13 +65,10 @@ const cliStartDir = parseCliStartDir();
 const createWindow = () => {
   Menu.setApplicationMenu(null);
 
-  const iconPath = path.resolve(path.join(__dirname, '../../assets/icon.png'));
-  const appIcon = nativeImage.createFromPath(iconPath);
-
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: appIcon.isEmpty() ? undefined : appIcon,
+    icon: path.resolve(__dirname, '../../assets/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
