@@ -56,6 +56,8 @@ const state: AppState = {
   permissionMode: 'bypassPermissions',
   worktreeManager: null,
   hookInstaller: null,
+  hookConfigStore: null,
+  hookEngine: null,
   mainWindow: null,
   cliStartDir: parseCliStartDir(),
   pipeName: PIPE_NAME,

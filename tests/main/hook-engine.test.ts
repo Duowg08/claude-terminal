@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { EventEmitter } from 'events';
 import { Readable } from 'stream';
 
@@ -20,7 +20,7 @@ vi.mock('@main/logger', () => ({
 import spawn from 'cross-spawn';
 import { HookEngine } from '@main/hook-engine';
 import type { HookConfigStore } from '@main/hook-config-store';
-import type { RepoHook } from '@shared/types';
+import type { RepoHook, HookExecutionStatus } from '@shared/types';
 
 function createMockProcess(exitCode: number, stdoutData = '', stderrData = '') {
   const proc = new EventEmitter() as EventEmitter & { stdout: Readable; stderr: Readable; pid: number };
@@ -48,7 +48,7 @@ function createMockStore(hooks: RepoHook[]): HookConfigStore {
 }
 
 describe('HookEngine', () => {
-  let onStatus: ReturnType<typeof vi.fn>;
+  let onStatus: Mock<(status: HookExecutionStatus) => void>;
   const mockSpawn = vi.mocked(spawn);
 
   beforeEach(() => {

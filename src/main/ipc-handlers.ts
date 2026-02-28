@@ -2,8 +2,10 @@ import { app, dialog, ipcMain } from 'electron';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { PermissionMode, RemoteAccessInfo } from '@shared/types';
+import type { PermissionMode, RemoteAccessInfo, RepoHookConfig } from '@shared/types';
 import { PERMISSION_FLAGS } from '@shared/types';
+import { HookConfigStore } from './hook-config-store';
+import { HookEngine } from './hook-engine';
 import { WorktreeManager } from './worktree-manager';
 import { HookInstaller } from './hook-installer';
 import type { TabManager } from './tab-manager';
@@ -16,6 +18,8 @@ export interface AppState {
   permissionMode: PermissionMode;
   worktreeManager: WorktreeManager | null;
   hookInstaller: HookInstaller | null;
+  hookConfigStore: HookConfigStore | null;
+  hookEngine: HookEngine | null;
   mainWindow: { setTitle: (title: string) => void } | null;
   cliStartDir: string | null;
   pipeName: string;
@@ -60,6 +64,10 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       log.debug('[session:start] hooksDir:', projectRoot);
       log.debug('[session:start] hooks exist:', fs.existsSync(path.join(projectRoot, 'pipe-send.js')));
       state.hookInstaller = new HookInstaller(projectRoot);
+      state.hookConfigStore = new HookConfigStore(dir);
+      state.hookEngine = new HookEngine(state.hookConfigStore, (status) => {
+        deps.sendToRenderer('hook:status', status);
+      });
 
       // Watch .git/HEAD for branch changes
       gitHeadWatcher?.close();
@@ -298,6 +306,17 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
 
   ipcMain.handle('settings:permissionMode', async () => {
     return settings.getPermissionMode();
+  });
+
+  // ---- Hook Config ----
+  ipcMain.handle('hookConfig:load', async () => {
+    if (!state.hookConfigStore) throw new Error('Session not started');
+    return state.hookConfigStore.load();
+  });
+
+  ipcMain.handle('hookConfig:save', async (_event, config: RepoHookConfig) => {
+    if (!state.hookConfigStore) throw new Error('Session not started');
+    state.hookConfigStore.save(config);
   });
 
   // ---- Dialog ----
