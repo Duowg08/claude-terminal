@@ -43,6 +43,7 @@ export default function StartupDialog({ onStart }: StartupDialogProps) {
     const dir = await window.claudeTerminal.selectDirectory();
     if (dir) {
       setSelectedDir(dir);
+      setRecentDirs(prev => prev.includes(dir) ? prev : [dir, ...prev]);
     }
   };
 
@@ -52,8 +53,14 @@ export default function StartupDialog({ onStart }: StartupDialogProps) {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && selectedDir) {
+      handleStart();
+    }
+  };
+
   return (
-    <div className="dialog-overlay">
+    <div className="dialog-overlay" onKeyDown={handleKeyDown}>
       <div className="dialog startup-dialog">
         <div className="startup-header">
           <h1>Claude Terminal</h1>
