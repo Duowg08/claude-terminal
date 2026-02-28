@@ -26,6 +26,7 @@ const junkPattern = /\.(map|md|ts)$|^(LICENSE|LICENCE|CHANGELOG|CHANGES|HISTORY|
 
 const config: ForgeConfig = {
   packagerConfig: {
+    icon: './assets/icon',
     asar: {
       unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*}',
     },
@@ -102,6 +103,7 @@ const config: ForgeConfig = {
       name: 'ClaudeTerminal',
       exe: 'ClaudeTerminal.exe',
       setupExe: 'ClaudeTerminalSetup.exe',
+      setupIcon: './assets/icon.ico',
       description: 'A Windows Terminal-like app for managing multiple Claude Code instances in tabs',
       authors: 'Yaron Guan Golan',
       noMsi: true,
