@@ -52,7 +52,7 @@ export class WorktreeManager {
     }
   }
 
-  list(): WorktreeInfo[] {
+  private list(): WorktreeInfo[] {
     const result = execSync('git worktree list', {
       cwd: this.rootDir,
       encoding: 'utf-8',

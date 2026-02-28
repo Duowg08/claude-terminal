@@ -48,11 +48,16 @@ describe('WorktreeManager', () => {
     );
   });
 
-  it('lists existing worktrees', () => {
-    mockExecSync.mockReturnValue(Buffer.from(
-      'D:/dev/MyApp  abc1234 [main]\nD:/dev/MyApp/.claude/worktrees/feat  def5678 [feat]\n'
-    ));
-    const list = manager.list();
-    expect(list).toHaveLength(2);
+  it('lists worktree details (skipping main worktree)', () => {
+    mockExecSync
+      .mockReturnValueOnce(Buffer.from(
+        'D:/dev/MyApp  abc1234 [main]\nD:/dev/MyApp/.claude/worktrees/feat  def5678 [feat]\n'
+      ))  // list() via listDetails()
+      .mockReturnValueOnce(Buffer.from('M  src/index.ts\n'));  // git status --porcelain for feat
+    const details = manager.listDetails();
+    expect(details).toHaveLength(1);
+    expect(details[0].name).toBe('feat');
+    expect(details[0].clean).toBe(false);
+    expect(details[0].changesCount).toBe(1);
   });
 });
