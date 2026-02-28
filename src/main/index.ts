@@ -425,9 +425,11 @@ function registerIpcHandlers() {
         // worktree removal is best-effort
       }
     }
-    tabManager.removeTab(tabId);
-    sendToRenderer('tab:removed', tabId);
-    persistSessions();
+    if (tabManager.getTab(tabId)) {
+      tabManager.removeTab(tabId);
+      sendToRenderer('tab:removed', tabId);
+      persistSessions();
+    }
   });
 
   ipcMain.handle('tab:switch', async (_event, tabId: string) => {
