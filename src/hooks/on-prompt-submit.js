@@ -13,7 +13,6 @@ const flagFile = path.join(tmpDir, `claude-terminal-named-${tabId}`);
 if (fs.existsSync(flagFile)) {
   process.exit(0);
 }
-fs.writeFileSync(flagFile, '');
 
 // Read prompt from stdin JSON
 let input = '';
@@ -25,6 +24,10 @@ process.stdin.on('end', () => {
     prompt = (j.user_prompt || j.prompt || '').substring(0, 500);
   } catch {}
   if (prompt) {
-    execFileSync('node', [pipeSend, 'tab:generate-name', prompt], { timeout: 5000 });
+    try {
+      execFileSync('node', [pipeSend, 'tab:generate-name', prompt], { timeout: 5000 });
+      // Only mark as named after successful send so retries work on failure
+      fs.writeFileSync(flagFile, '');
+    } catch { /* not running inside ClaudeTerminal */ }
   }
 });
