@@ -43,12 +43,6 @@ describe('PtyManager', () => {
     );
   });
 
-  it('tracks spawned processes by tab ID', () => {
-    manager.spawn('tab-1', 'D:\\dev\\MyApp', [], {});
-    expect(manager.getPty('tab-1')).toBeDefined();
-    expect(manager.getPty('tab-999')).toBeUndefined();
-  });
-
   it('writes data to PTY', () => {
     manager.spawn('tab-1', 'D:\\dev\\MyApp', [], {});
     manager.write('tab-1', 'hello');
@@ -64,6 +58,9 @@ describe('PtyManager', () => {
   it('kills and removes PTY', () => {
     manager.spawn('tab-1', 'D:\\dev\\MyApp', [], {});
     manager.kill('tab-1');
-    expect(manager.getPty('tab-1')).toBeUndefined();
+    // After kill, writing should be a no-op (no error, no delegation)
+    mockPty.write.mockClear();
+    manager.write('tab-1', 'should be ignored');
+    expect(mockPty.write).not.toHaveBeenCalled();
   });
 });

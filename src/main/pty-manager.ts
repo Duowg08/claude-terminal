@@ -37,10 +37,6 @@ export class PtyManager {
     return proc;
   }
 
-  getPty(tabId: string): pty.IPty | undefined {
-    return this.ptys.get(tabId)?.process;
-  }
-
   write(tabId: string, data: string): void {
     this.ptys.get(tabId)?.process.write(data);
   }
