@@ -182,6 +182,15 @@ function generateTabName(tabId: string, prompt: string) {
     if (err) {
       log.error('[generateTabName] FAILED:', err.message);
       log.error('[generateTabName] stderr:', stderr);
+      // On timeout or error, ensure the process tree is killed (SIGTERM
+      // doesn't work on Windows cmd.exe process trees).
+      if (child.pid) {
+        if (isWindows) {
+          try { execFile('taskkill', ['/pid', String(child.pid), '/T', '/F']); } catch { /* best effort */ }
+        } else {
+          child.kill('SIGKILL');
+        }
+      }
       return;
     }
     log.debug('[generateTabName] stdout:', JSON.stringify(stdout));
