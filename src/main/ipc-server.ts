@@ -17,6 +17,9 @@ export class HookIpcServer {
     return new Promise((resolve, reject) => {
       this.server = net.createServer((socket) => {
         let buffer = '';
+        socket.on('error', (err) => {
+          log.warn('[ipc-socket-error]', err.message);
+        });
         socket.on('data', (chunk) => {
           buffer += chunk.toString();
           log.debug('[ipc-raw]', chunk.toString().substring(0, 200));
