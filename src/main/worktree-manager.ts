@@ -1,4 +1,4 @@
-import { execSync, spawn } from 'child_process';
+import { execSync, execFileSync, spawn } from 'child_process';
 import path from 'path';
 
 export interface WorktreeInfo {
@@ -31,8 +31,9 @@ export class WorktreeManager {
   create(name: string): string {
     const worktreePath = path.join(this.rootDir, '.claude', 'worktrees', name);
     const branch = this.getCurrentBranch();
-    execSync(
-      `git worktree add "${worktreePath}" -b "${name}" "${branch}"`,
+    execFileSync(
+      'git',
+      ['worktree', 'add', worktreePath, '-b', name, branch],
       { cwd: this.rootDir, encoding: 'utf-8' },
     );
     return worktreePath;
@@ -82,12 +83,13 @@ export class WorktreeManager {
   remove(worktreePath: string): void {
     // Derive the branch name from the worktree directory name
     const branchName = path.basename(worktreePath);
-    execSync(
-      `git worktree remove "${worktreePath}" --force`,
+    execFileSync(
+      'git',
+      ['worktree', 'remove', worktreePath, '--force'],
       { cwd: this.rootDir, encoding: 'utf-8' },
     );
     try {
-      execSync(`git branch -D "${branchName}"`, { cwd: this.rootDir, encoding: 'utf-8' });
+      execFileSync('git', ['branch', '-D', branchName], { cwd: this.rootDir, encoding: 'utf-8' });
     } catch {
       // branch may not exist or may have been merged
     }
