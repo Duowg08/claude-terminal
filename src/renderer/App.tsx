@@ -23,6 +23,7 @@ export default function App() {
   const [remoteInfo, setRemoteInfo] = useState<RemoteAccessInfo>({
     status: 'inactive', tunnelUrl: null, token: null, error: null,
   });
+  const [branch, setBranch] = useState<string | null>(null);
   const [worktreeCloseConfirm, setWorktreeCloseConfirm] = useState<{
     tabId: string; worktreeName: string; clean: boolean; changesCount: number;
   } | null>(null);
@@ -116,6 +117,10 @@ export default function App() {
       setActiveTabId(activeId);
       setAppState('running');
 
+      try {
+        setBranch(await window.claudeTerminal.getCurrentBranch());
+      } catch { /* not a git repo */ }
+
       if (allTabs.length === 0) {
         handleNewTabWithoutWorktree();
       }
@@ -162,19 +167,24 @@ export default function App() {
       setActiveTabId(tabId);
     });
 
+    const cleanupBranch = window.claudeTerminal.onBranchChanged((b) => {
+      setBranch(b);
+    });
+
     return () => {
       cleanupUpdate();
       cleanupRemoved();
       cleanupRemote();
       cleanupSwitched();
+      cleanupBranch();
     };
   }, []);
 
-  // Update window title when tabs or workspace change
+  // Update window title when tabs, workspace, or branch change
   useEffect(() => {
-    const title = buildWindowTitle(workspaceDir, tabs);
+    const title = buildWindowTitle(workspaceDir, tabs, branch);
     window.claudeTerminal.setWindowTitle(title);
-  }, [tabs, workspaceDir]);
+  }, [tabs, workspaceDir, branch]);
 
   // Track worktree count for hamburger menu
   useEffect(() => {
@@ -295,6 +305,10 @@ export default function App() {
     setTabs(allTabs);
     setActiveTabId(activeId);
     setAppState('running');
+
+    try {
+      setBranch(await window.claudeTerminal.getCurrentBranch());
+    } catch { /* not a git repo */ }
 
     // Only create a tab if no tabs were restored
     if (allTabs.length === 0) {

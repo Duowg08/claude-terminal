@@ -117,6 +117,15 @@ const api = {
       ipcRenderer.removeListener('tab:switched', handler);
     };
   },
+
+  onBranchChanged: (callback: (branch: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, branch: string) =>
+      callback(branch);
+    ipcRenderer.on('git:branchChanged', handler);
+    return () => {
+      ipcRenderer.removeListener('git:branchChanged', handler);
+    };
+  },
 };
 
 contextBridge.exposeInMainWorld('claudeTerminal', api);

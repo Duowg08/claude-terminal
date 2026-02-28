@@ -40,6 +40,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   // Per-tab flow control state for PTY data buffering
   const flowControl = new Map<string, { paused: boolean; buffer: string[] }>();
 
+  // Git HEAD watcher — detects branch changes
+  let gitHeadWatcher: fs.FSWatcher | null = null;
+
   // ---- Session ----
   ipcMain.handle(
     'session:start',
@@ -57,6 +60,24 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       log.debug('[session:start] hooksDir:', projectRoot);
       log.debug('[session:start] hooks exist:', fs.existsSync(path.join(projectRoot, 'pipe-send.js')));
       state.hookInstaller = new HookInstaller(projectRoot);
+
+      // Watch .git/HEAD for branch changes
+      gitHeadWatcher?.close();
+      gitHeadWatcher = null;
+      const gitHeadPath = path.join(dir, '.git', 'HEAD');
+      if (fs.existsSync(gitHeadPath)) {
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        gitHeadWatcher = fs.watch(gitHeadPath, () => {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            try {
+              const branch = state.worktreeManager?.getCurrentBranch() ?? null;
+              deps.sendToRenderer('git:branchChanged', branch);
+            } catch { /* not a git repo or git error */ }
+          }, 1000);
+        });
+        gitHeadWatcher.on('error', () => { /* ignore watch errors */ });
+      }
     },
   );
 

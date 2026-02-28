@@ -1,7 +1,8 @@
 import type { Tab } from './types';
 
-export function buildWindowTitle(workspaceDir: string | null, tabs: Tab[]): string {
-  const base = workspaceDir ? `ClaudeTerminal - ${workspaceDir}` : 'ClaudeTerminal';
+export function buildWindowTitle(workspaceDir: string | null, tabs: Tab[], branch?: string | null): string {
+  let base = workspaceDir ? `ClaudeTerminal - ${workspaceDir}` : 'ClaudeTerminal';
+  if (branch) base += ` (${branch})`;
 
   if (tabs.length === 0) return base;
 
