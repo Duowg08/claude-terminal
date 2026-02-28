@@ -23,13 +23,6 @@ export default function StartupDialog({ onStart }: StartupDialogProps) {
 
     // Load saved permission mode
     window.claudeTerminal.getPermissionMode().then(setPermissionMode).catch(() => {});
-
-    // Check for CLI-provided directory
-    window.claudeTerminal.getCliStartDir().then((dir) => {
-      if (dir) {
-        setSelectedDir(dir);
-      }
-    }).catch(() => {});
   }, []);
 
   const handleRemoveDir = async (dir: string, e: React.MouseEvent) => {
