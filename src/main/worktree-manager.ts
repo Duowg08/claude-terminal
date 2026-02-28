@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import path from 'path';
 
 export interface WorktreeInfo {
@@ -36,6 +36,34 @@ export class WorktreeManager {
       { cwd: this.rootDir, encoding: 'utf-8' },
     );
     return worktreePath;
+  }
+
+  createAsync(name: string, onOutput: (text: string) => void): Promise<string> {
+    const worktreePath = path.join(this.rootDir, '.claude', 'worktrees', name);
+    const branch = this.getCurrentBranch();
+
+    return new Promise((resolve, reject) => {
+      const proc = spawn(
+        'git',
+        ['worktree', 'add', worktreePath, '-b', name, branch],
+        { cwd: this.rootDir },
+      );
+
+      proc.stdout.on('data', (data: Buffer) => onOutput(data.toString()));
+      proc.stderr.on('data', (data: Buffer) => onOutput(data.toString()));
+
+      proc.on('error', (err) => {
+        reject(new Error(`Failed to spawn git: ${err.message}`));
+      });
+
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve(worktreePath);
+        } else {
+          reject(new Error(`git worktree add failed with exit code ${code}`));
+        }
+      });
+    });
   }
 
   checkStatus(worktreePath: string): { clean: boolean; changesCount: number } {

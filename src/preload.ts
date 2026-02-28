@@ -5,6 +5,8 @@ const api = {
   // Tab operations
   createTab: (worktree: string | null, resumeSessionId?: string, savedName?: string): Promise<Tab> =>
     ipcRenderer.invoke('tab:create', worktree, resumeSessionId, savedName),
+  createTabWithWorktree: (worktreeName: string): Promise<Tab> =>
+    ipcRenderer.invoke('tab:createWithWorktree', worktreeName),
   createShellTab: (shellType: 'powershell' | 'wsl', afterTabId?: string, cwd?: string): Promise<Tab> =>
     ipcRenderer.invoke('tab:createShell', shellType, afterTabId, cwd),
   closeTab: (tabId: string, removeWorktree?: boolean): Promise<void> =>
@@ -106,6 +108,15 @@ const api = {
     ipcRenderer.on('tab:removed', handler);
     return () => {
       ipcRenderer.removeListener('tab:removed', handler);
+    };
+  },
+
+  onWorktreeProgress: (callback: (tabId: string, text: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, tabId: string, text: string) =>
+      callback(tabId, text);
+    ipcRenderer.on('tab:worktreeProgress', handler);
+    return () => {
+      ipcRenderer.removeListener('tab:worktreeProgress', handler);
     };
   },
 

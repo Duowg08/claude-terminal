@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Capture ipcMain registrations
 const handlers = new Map<string, (...args: unknown[]) => unknown>();
@@ -31,7 +31,8 @@ vi.mock('@main/worktree-manager', () => ({
   WorktreeManager: vi.fn(function () {
     return {
       create: vi.fn(),
-      getCurrentBranch: vi.fn(),
+      createAsync: vi.fn(async () => '/test/.claude/worktrees/my-feature'),
+      getCurrentBranch: vi.fn(() => 'main'),
       listDetails: vi.fn(),
       remove: vi.fn(),
       checkStatus: vi.fn(() => ({ clean: true, changesCount: 0 })),
@@ -108,6 +109,7 @@ describe('registerIpcHandlers', () => {
   let deps: IpcHandlerDeps;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     handlers.clear();
     listeners.clear();
@@ -115,10 +117,14 @@ describe('registerIpcHandlers', () => {
     registerIpcHandlers(deps);
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('registers all expected channels', () => {
     const expectedHandlers = [
       'session:start', 'session:getSavedTabs',
-      'tab:create', 'tab:createShell', 'tab:close', 'tab:switch', 'tab:rename', 'tab:getAll', 'tab:getActiveId',
+      'tab:create', 'tab:createWithWorktree', 'tab:createShell', 'tab:close', 'tab:switch', 'tab:rename', 'tab:getAll', 'tab:getActiveId',
       'worktree:create', 'worktree:currentBranch', 'worktree:listDetails', 'worktree:remove', 'worktree:checkStatus',
       'settings:recentDirs', 'settings:removeRecentDir', 'settings:permissionMode',
       'dialog:selectDirectory', 'cli:getStartDir',
@@ -222,6 +228,75 @@ describe('registerIpcHandlers', () => {
   it('registers pty:pause and pty:resume listeners', () => {
     expect(listeners.has('pty:pause')).toBe(true);
     expect(listeners.has('pty:resume')).toBe(true);
+  });
+
+  describe('tab:createWithWorktree', () => {
+    beforeEach(async () => {
+      deps.state.workspaceDir = '/test';
+      const startHandler = handlers.get('session:start')!;
+      await startHandler({}, '/test', 'bypassPermissions');
+    });
+
+    it('returns tab immediately without waiting for worktree creation', async () => {
+      const handler = handlers.get('tab:createWithWorktree')!;
+      const tab = await handler({}, 'my-feature');
+
+      expect(tab).toBeDefined();
+      expect((tab as any).id).toBe('tab-1');
+      expect(deps.sendToRenderer).toHaveBeenCalledWith('tab:updated', expect.anything());
+      expect(deps.persistSessions).toHaveBeenCalled();
+    });
+
+    it('sends progress and spawns Claude after setTimeout', async () => {
+      const handler = handlers.get('tab:createWithWorktree')!;
+      await handler({}, 'my-feature');
+
+      // Trigger the setTimeout callback
+      await vi.runAllTimersAsync();
+
+      // Should have sent progress messages
+      expect(deps.sendToRenderer).toHaveBeenCalledWith(
+        'tab:worktreeProgress', 'tab-1', expect.stringContaining('Creating worktree'),
+      );
+
+      // Should have spawned Claude PTY
+      expect(deps.ptyManager.spawn).toHaveBeenCalledWith(
+        'tab-1',
+        expect.stringContaining('my-feature'),
+        expect.any(Array),
+        expect.any(Object),
+      );
+    });
+
+    it('cleans up zombie tab on createAsync error', async () => {
+      // Make createAsync reject
+      const worktreeManager = deps.state.worktreeManager!;
+      (worktreeManager.createAsync as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(new Error('branch already exists'));
+
+      const handler = handlers.get('tab:createWithWorktree')!;
+      await handler({}, 'bad-name');
+
+      await vi.runAllTimersAsync();
+
+      // Should have removed the zombie tab
+      expect(deps.tabManager.removeTab).toHaveBeenCalledWith('tab-1');
+      expect(deps.sendToRenderer).toHaveBeenCalledWith('tab:removed', 'tab-1');
+      expect(deps.persistSessions).toHaveBeenCalled();
+    });
+
+    it('does not spawn if tab was closed during setTimeout delay', async () => {
+      // Tab gets closed before doSetup runs
+      (deps.tabManager.getTab as ReturnType<typeof vi.fn>).mockReturnValue(null);
+
+      const handler = handlers.get('tab:createWithWorktree')!;
+      await handler({}, 'my-feature');
+
+      await vi.runAllTimersAsync();
+
+      // Should NOT have spawned Claude
+      expect(deps.ptyManager.spawn).not.toHaveBeenCalled();
+    });
   });
 
   describe('pty flow control', () => {

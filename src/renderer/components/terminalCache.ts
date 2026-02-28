@@ -12,6 +12,9 @@ export interface CachedTerminal {
 
 export const terminalCache = new Map<string, CachedTerminal>();
 
+// Buffer for worktree progress messages that arrive before xterm is mounted
+export const pendingWrites = new Map<string, string[]>();
+
 // Renderer-side flow control state
 export const pendingBytes = new Map<string, number>();
 export const pausedTabs = new Set<string>();
@@ -25,6 +28,7 @@ export function destroyTerminal(tabId: string): void {
   }
   pendingBytes.delete(tabId);
   pausedTabs.delete(tabId);
+  pendingWrites.delete(tabId);
 }
 
 /**

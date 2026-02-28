@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
 
 vi.mock('child_process', () => ({
   execSync: vi.fn(),
+  spawn: vi.fn(),
 }));
 
 import { WorktreeManager } from '@main/worktree-manager';
@@ -73,5 +74,78 @@ describe('WorktreeManager', () => {
     expect(details[0].name).toBe('feat');
     expect(details[0].clean).toBe(false);
     expect(details[0].changesCount).toBe(1);
+  });
+
+  describe('createAsync', () => {
+    const mockSpawn = vi.mocked(spawn);
+
+    it('resolves with worktree path on success', async () => {
+      mockExecSync.mockReturnValueOnce(Buffer.from('main\n')); // getCurrentBranch
+
+      const mockProc = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+      };
+      mockSpawn.mockReturnValue(mockProc as any);
+
+      const onOutput = vi.fn();
+      const promise = manager.createAsync('my-feature', onOutput);
+
+      // Simulate stdout output
+      const stdoutCb = mockProc.stdout.on.mock.calls[0][1];
+      stdoutCb(Buffer.from('Preparing worktree'));
+
+      // Simulate successful close
+      const closeCb = mockProc.on.mock.calls.find((c: any) => c[0] === 'close')![1];
+      closeCb(0);
+
+      const result = await promise;
+      expect(result).toContain(path.join('.claude', 'worktrees', 'my-feature'));
+      expect(onOutput).toHaveBeenCalledWith('Preparing worktree');
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'git',
+        expect.arrayContaining(['worktree', 'add']),
+        expect.objectContaining({ cwd: 'D:\\dev\\MyApp' }),
+      );
+    });
+
+    it('rejects when git exits with non-zero code', async () => {
+      mockExecSync.mockReturnValueOnce(Buffer.from('main\n'));
+
+      const mockProc = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+      };
+      mockSpawn.mockReturnValue(mockProc as any);
+
+      const onOutput = vi.fn();
+      const promise = manager.createAsync('bad-name', onOutput);
+
+      const closeCb = mockProc.on.mock.calls.find((c: any) => c[0] === 'close')![1];
+      closeCb(128);
+
+      await expect(promise).rejects.toThrow('git worktree add failed with exit code 128');
+    });
+
+    it('rejects when spawn fails', async () => {
+      mockExecSync.mockReturnValueOnce(Buffer.from('main\n'));
+
+      const mockProc = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+      };
+      mockSpawn.mockReturnValue(mockProc as any);
+
+      const onOutput = vi.fn();
+      const promise = manager.createAsync('feat', onOutput);
+
+      const errorCb = mockProc.on.mock.calls.find((c: any) => c[0] === 'error')![1];
+      errorCb(new Error('ENOENT'));
+
+      await expect(promise).rejects.toThrow('Failed to spawn git: ENOENT');
+    });
   });
 });

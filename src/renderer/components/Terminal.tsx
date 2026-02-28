@@ -4,7 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
-import { terminalCache, pendingBytes, pausedTabs } from './terminalCache';
+import { terminalCache, pendingBytes, pausedTabs, pendingWrites } from './terminalCache';
 
 interface TerminalProps {
   tabId: string;
@@ -55,6 +55,24 @@ function ensurePtyListener(): void {
       window.claudeTerminal.pausePty(dataTabId);
     }
   });
+
+  // Also register for worktree progress events (same HMR-safe pattern)
+  if (typeof win.__cleanupWorktreeProgressListener === 'function') {
+    win.__cleanupWorktreeProgressListener();
+  }
+
+  win.__cleanupWorktreeProgressListener =
+    window.claudeTerminal.onWorktreeProgress((dataTabId, text) => {
+      const cached = terminalCache.get(dataTabId);
+      if (cached) {
+        cached.term.write(text);
+      } else {
+        // Terminal not mounted yet — buffer for replay when it's created
+        const pending = pendingWrites.get(dataTabId) ?? [];
+        pending.push(text);
+        pendingWrites.set(dataTabId, pending);
+      }
+    });
 }
 
 export default function Terminal({ tabId, isVisible, fixedCols, fixedRows }: TerminalProps) {
@@ -128,6 +146,15 @@ export default function Terminal({ tabId, isVisible, fixedCols, fixedRows }: Ter
 
       cached = { term, fitAddon, serializeAddon, onDataDisposable };
       terminalCache.set(tabId, cached);
+
+      // Flush any worktree progress messages that arrived before xterm was mounted
+      const buffered = pendingWrites.get(tabId);
+      if (buffered) {
+        for (const text of buffered) {
+          term.write(text);
+        }
+        pendingWrites.delete(tabId);
+      }
     }
 
     const { term, fitAddon } = cached;

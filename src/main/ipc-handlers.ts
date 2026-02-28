@@ -162,6 +162,114 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     return tab;
   });
 
+  ipcMain.handle('tab:createWithWorktree', async (_event, worktreeName: string) => {
+    if (!state.workspaceDir || !state.worktreeManager) throw new Error('Session not started');
+
+    // ANSI codes for progress display
+    const CYAN = '\x1b[36m';
+    const GREEN = '\x1b[32m';
+    const RED = '\x1b[31m';
+    const DIM = '\x1b[2m';
+    const RESET = '\x1b[0m';
+
+    // 1. Create tab immediately so renderer can mount xterm
+    const cwd = path.join(state.workspaceDir, '.claude', 'worktrees', worktreeName);
+    const tab = tabManager.createTab(cwd, worktreeName, 'claude');
+    deps.sendToRenderer('tab:updated', tab);
+    deps.persistSessions();
+
+    const sendProgress = (text: string) => {
+      deps.sendToRenderer('tab:worktreeProgress', tab.id, text);
+    };
+
+    // 2. Fire off async worktree creation (don't block the IPC return)
+    const baseBranch = state.worktreeManager.getCurrentBranch();
+
+    const doSetup = async () => {
+      // Guard: tab may have been closed during the setTimeout delay
+      if (!tabManager.getTab(tab.id)) return;
+
+      sendProgress(`${CYAN}❯${RESET} Creating worktree "${worktreeName}"...\r\n`);
+      sendProgress(`  Branch: ${worktreeName} (from ${baseBranch})\r\n`);
+      sendProgress(`  Path: .claude/worktrees/${worktreeName}\r\n`);
+
+      try {
+        await state.worktreeManager!.createAsync(worktreeName, (text) => {
+          sendProgress(`${DIM}${text}${RESET}`);
+        });
+
+        // Guard: tab may have been closed while git was running
+        if (!tabManager.getTab(tab.id)) return;
+
+        sendProgress(`${GREEN}✓${RESET} Worktree created\r\n\r\n`);
+        sendProgress(`${CYAN}❯${RESET} Starting Claude...\r\n`);
+
+        if (state.hookInstaller) {
+          state.hookInstaller.install(cwd);
+        }
+
+        const args: string[] = [...(PERMISSION_FLAGS[state.permissionMode] ?? [])];
+
+        const extraEnv: Record<string, string> = {
+          CLAUDE_TERMINAL_TAB_ID: tab.id,
+          CLAUDE_TERMINAL_PIPE: state.pipeName,
+          CLAUDE_TERMINAL_TMPDIR: os.tmpdir(),
+        };
+
+        const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
+        tab.pid = proc.pid;
+
+        settings.addRecentDir(state.workspaceDir!);
+
+        flowControl.set(tab.id, { paused: false, buffer: [] });
+
+        proc.onData((data: string) => {
+          const fc = flowControl.get(tab.id);
+          if (fc?.paused) {
+            fc.buffer.push(data);
+          } else {
+            deps.sendToRenderer('pty:data', tab.id, data);
+          }
+        });
+
+        proc.onExit(() => {
+          flowControl.delete(tab.id);
+          if (tabManager.getTab(tab.id)) {
+            deps.cleanupNamingFlag(tab.id);
+            tabManager.removeTab(tab.id);
+            deps.sendToRenderer('tab:removed', tab.id);
+            deps.persistSessions();
+          }
+        });
+
+        if (tabManager.getAllTabs().length === 1) {
+          tabManager.setActiveTab(tab.id);
+        }
+
+        deps.sendToRenderer('tab:updated', tab);
+        deps.persistSessions();
+      } catch (err) {
+        sendProgress(`\r\n${RED}✗${RESET} Failed to create worktree\r\n`);
+        if (err instanceof Error) {
+          sendProgress(`${RED}${err.message}${RESET}\r\n`);
+        }
+        // Bug fix: clean up zombie tab on failure
+        if (tabManager.getTab(tab.id)) {
+          tabManager.removeTab(tab.id);
+          deps.sendToRenderer('tab:removed', tab.id);
+          deps.persistSessions();
+        }
+      }
+    };
+
+    // Small delay so the renderer has time to mount the xterm for this tab,
+    // then begin sending progress
+    setTimeout(doSetup, 50);
+
+    // Return tab immediately so renderer can switch to it
+    return tab;
+  });
+
   ipcMain.handle('tab:createShell', async (_event, shellType: 'powershell' | 'wsl', afterTabId?: string, explicitCwd?: string) => {
     if (!state.workspaceDir) throw new Error('Session not started');
 
