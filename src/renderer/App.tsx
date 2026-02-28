@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { PermissionMode, Tab } from '../shared/types';
 import StartupDialog from './components/StartupDialog';
 import TabBar from './components/TabBar';
@@ -18,9 +18,6 @@ export default function App() {
   const [showNewTabDialog, setShowNewTabDialog] = useState(false);
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
-  const tabsRef = useRef(tabs);
-  tabsRef.current = tabs;
-
   // Auto-start when a CLI directory was provided (skip StartupDialog)
   useEffect(() => {
     let cancelled = false;
@@ -77,14 +74,16 @@ export default function App() {
 
     const cleanupRemoved = window.claudeTerminal.onTabRemoved((tabId) => {
       destroyTerminal(tabId);
-      setTabs((prev) => prev.filter((t) => t.id !== tabId));
-      setActiveTabId((prev) => {
-        if (prev === tabId) {
-          // Switch to another tab (use ref to avoid stale closure)
-          const remaining = tabsRef.current.filter((t) => t.id !== tabId);
-          return remaining.length > 0 ? remaining[0].id : null;
-        }
-        return prev;
+      setTabs((prev) => {
+        const remaining = prev.filter((t) => t.id !== tabId);
+        // Update active tab inside the same updater to avoid stale ref reads
+        setActiveTabId((prevActive) => {
+          if (prevActive === tabId) {
+            return remaining.length > 0 ? remaining[0].id : null;
+          }
+          return prevActive;
+        });
+        return remaining;
       });
     });
 
