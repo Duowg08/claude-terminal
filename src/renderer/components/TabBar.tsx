@@ -1,5 +1,6 @@
 import type { Tab as TabType } from '../../shared/types';
 import Tab from './Tab';
+import HamburgerMenu from './HamburgerMenu';
 
 interface TabBarProps {
   tabs: TabType[];
@@ -8,6 +9,8 @@ interface TabBarProps {
   onCloseTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
   onNewTab: () => void;
+  worktreeCount: number;
+  onManageWorktrees: () => void;
 }
 
 export default function TabBar({
@@ -17,6 +20,8 @@ export default function TabBar({
   onCloseTab,
   onRenameTab,
   onNewTab,
+  worktreeCount,
+  onManageWorktrees,
 }: TabBarProps) {
   return (
     <div className="tab-bar">
@@ -33,6 +38,7 @@ export default function TabBar({
       <button className="new-tab-btn" onClick={onNewTab} title="New tab (Ctrl+T)">
         +
       </button>
+      <HamburgerMenu worktreeCount={worktreeCount} onManageWorktrees={onManageWorktrees} />
     </div>
   );
 }

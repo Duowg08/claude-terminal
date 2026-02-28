@@ -8,6 +8,7 @@ import StatusBar from './components/StatusBar';
 import NewTabDialog from './components/NewTabDialog';
 import { buildWindowTitle } from '../shared/window-title';
 import WorktreeNameDialog from './components/WorktreeNameDialog';
+import WorktreeManagerDialog from './components/WorktreeManagerDialog';
 
 type AppState = 'startup' | 'running';
 
@@ -17,6 +18,8 @@ export default function App() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showNewTabDialog, setShowNewTabDialog] = useState(false);
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
+  const [showWorktreeManager, setShowWorktreeManager] = useState(false);
+  const [worktreeCount, setWorktreeCount] = useState(0);
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
   // Auto-start when a CLI directory was provided (skip StartupDialog)
   useEffect(() => {
@@ -98,6 +101,20 @@ export default function App() {
     const title = buildWindowTitle(workspaceDir, tabs);
     window.claudeTerminal.setWindowTitle(title);
   }, [tabs, workspaceDir]);
+
+  // Track worktree count for hamburger menu
+  useEffect(() => {
+    if (appState !== 'running') return;
+    const updateCount = async () => {
+      try {
+        const details = await window.claudeTerminal.listWorktreeDetails();
+        setWorktreeCount(details.length);
+      } catch { /* session may not be started */ }
+    };
+    updateCount();
+    const interval = setInterval(updateCount, 5000);
+    return () => clearInterval(interval);
+  }, [appState]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -241,6 +258,8 @@ export default function App() {
         onCloseTab={handleCloseTab}
         onRenameTab={handleRenameTab}
         onNewTab={() => setShowNewTabDialog(true)}
+        worktreeCount={worktreeCount}
+        onManageWorktrees={() => setShowWorktreeManager(true)}
       />
       <div className="terminal-area">
         {tabs.map((tab) => (
@@ -264,6 +283,9 @@ export default function App() {
           onCreateWithWorktree={handleNewTabWithWorktree}
           onCancel={() => setShowWorktreeDialog(false)}
         />
+      )}
+      {showWorktreeManager && (
+        <WorktreeManagerDialog onClose={() => setShowWorktreeManager(false)} />
       )}
     </div>
   );
