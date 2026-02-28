@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { validateWorktreeName } from '../utils/validate-worktree-name';
 
 interface NewTabDialogProps {
   onCreateWithWorktree: (name: string) => void;
@@ -29,6 +30,9 @@ export default function NewTabDialog({
     }
   };
 
+  const validationError = validateWorktreeName(worktreeName.trim());
+  const canSubmit = worktreeName.trim() && !validationError;
+
   if (step === 1) {
     return (
       <div className="dialog-overlay" onKeyDown={handleKeyDown}>
@@ -58,12 +62,15 @@ export default function NewTabDialog({
             placeholder="feature-name"
             autoFocus
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && worktreeName.trim()) {
+              if (e.key === 'Enter' && canSubmit) {
                 onCreateWithWorktree(worktreeName.trim());
               }
             }}
           />
         </label>
+        {validationError && (
+          <div className="validation-error">{validationError}</div>
+        )}
         {currentBranch && (
           <div className="branch-info">
             Base branch: {currentBranch}
@@ -71,7 +78,7 @@ export default function NewTabDialog({
         )}
         <div className="dialog-actions">
           <button
-            disabled={!worktreeName.trim()}
+            disabled={!canSubmit}
             onClick={() => onCreateWithWorktree(worktreeName.trim())}
           >
             Create
