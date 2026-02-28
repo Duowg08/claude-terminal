@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { PermissionMode, Tab, TabType, SavedTab } from './shared/types';
+import type { PermissionMode, Tab, SavedTab } from './shared/types';
 
 const api = {
   // Tab operations

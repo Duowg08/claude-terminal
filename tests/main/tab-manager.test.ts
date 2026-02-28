@@ -56,6 +56,45 @@ describe('TabManager', () => {
     expect(manager.getTab(tab.id)).toBeUndefined();
   });
 
+  it('creates a powershell tab with correct defaults', () => {
+    const tab = manager.createTab('D:\\dev\\MyApp', null, 'powershell');
+    expect(tab.type).toBe('powershell');
+    expect(tab.status).toBe('shell');
+    expect(tab.name).toBe('PowerShell');
+  });
+
+  it('creates a wsl tab with correct defaults', () => {
+    const tab = manager.createTab('D:\\dev\\MyApp', null, 'wsl');
+    expect(tab.type).toBe('wsl');
+    expect(tab.status).toBe('shell');
+    expect(tab.name).toBe('WSL');
+  });
+
+  it('shell tabs do not increment tab counter', () => {
+    manager.createTab('D:\\dev\\A', null, 'powershell');
+    const claude = manager.createTab('D:\\dev\\B', null);
+    expect(claude.name).toBe('Tab 1');
+  });
+
+  it('inserts tab after the specified tab', () => {
+    const tab1 = manager.createTab('D:\\dev\\A', null);
+    const tab2 = manager.createTab('D:\\dev\\B', null);
+    const tab3 = manager.createTab('D:\\dev\\C', null, 'powershell');
+    manager.removeTab(tab3.id);
+    manager.insertTabAfter(tab1.id, tab3);
+    const ids = manager.getAllTabs().map(t => t.id);
+    expect(ids).toEqual([tab1.id, tab3.id, tab2.id]);
+  });
+
+  it('insertTabAfter appends when afterTabId not found', () => {
+    const tab1 = manager.createTab('D:\\dev\\A', null);
+    const tab2 = manager.createTab('D:\\dev\\B', null, 'wsl');
+    manager.removeTab(tab2.id);
+    manager.insertTabAfter('nonexistent', tab2);
+    const ids = manager.getAllTabs().map(t => t.id);
+    expect(ids).toEqual([tab1.id, tab2.id]);
+  });
+
   it('tracks active tab', () => {
     const tab1 = manager.createTab('D:\\dev\\A', null);
     const tab2 = manager.createTab('D:\\dev\\B', null);

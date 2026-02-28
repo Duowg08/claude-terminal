@@ -443,7 +443,9 @@ function registerIpcHandlers() {
 
     const tab = tabManager.createTab(cwd, null, shellType);
 
-    // If afterTabId provided, reposition the tab right after the parent
+    // If afterTabId provided, reposition the tab right after the parent.
+    // Note: removeTab may reset activeTabId as a side effect, but setActiveTab
+    // below corrects it. The tab object itself remains valid after removal.
     if (afterTabId) {
       tabManager.removeTab(tab.id);
       tabManager.insertTabAfter(afterTabId, tab);

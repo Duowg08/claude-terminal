@@ -55,6 +55,28 @@ describe('PtyManager', () => {
     expect(mockPty.resize).toHaveBeenCalledWith(120, 40);
   });
 
+  it('spawns a shell process directly', () => {
+    manager.spawnShell('tab-2', 'D:\\dev\\MyApp', 'powershell');
+    expect(pty.spawn).toHaveBeenCalledWith(
+      'powershell.exe',
+      [],
+      expect.objectContaining({
+        cwd: 'D:\\dev\\MyApp',
+      }),
+    );
+  });
+
+  it('spawns wsl process', () => {
+    manager.spawnShell('tab-3', 'D:\\dev\\MyApp', 'wsl');
+    expect(pty.spawn).toHaveBeenCalledWith(
+      'wsl.exe',
+      [],
+      expect.objectContaining({
+        cwd: 'D:\\dev\\MyApp',
+      }),
+    );
+  });
+
   it('kills and removes PTY', () => {
     manager.spawn('tab-1', 'D:\\dev\\MyApp', [], {});
     manager.kill('tab-1');
