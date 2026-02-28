@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import * as pty from 'node-pty';
 
 interface ManagedPty {
@@ -49,11 +50,21 @@ export class PtyManager {
   kill(tabId: string): void {
     const managed = this.ptys.get(tabId);
     if (!managed) return;
-    managed.process.write('exit\r');
     this.ptys.delete(tabId);
-    setTimeout(() => {
+
+    // IMPORTANT: Do NOT call managed.process.kill() on Windows.
+    // node-pty's ConPTY kill() uses child_process.fork() which spawns
+    // process.execPath (= ClaudeTerminal.exe in production) to run its
+    // conpty_console_list_agent helper, launching a second app instance.
+    // Instead, use taskkill to kill the entire process tree directly.
+    const pid = managed.process.pid;
+    if (process.platform === 'win32') {
+      try {
+        execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+      } catch { /* process may have already exited */ }
+    } else {
       try { managed.process.kill(); } catch { /* already dead */ }
-    }, 500);
+    }
   }
 
   killAll(): void {

@@ -21,6 +21,22 @@ if (handleSquirrelEvent(app)) {
 }
 
 // ---------------------------------------------------------------------------
+// Single-instance lock — prevent duplicate app windows
+// ---------------------------------------------------------------------------
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Focus the existing window instead of allowing a second one
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Singletons
 // ---------------------------------------------------------------------------
 const tabManager = new TabManager();
@@ -459,9 +475,10 @@ function registerIpcHandlers() {
 // App lifecycle
 // ---------------------------------------------------------------------------
 
-// Give each instance its own disk cache so multiple windows don't fight over locks.
-app.commandLine.appendSwitch(
-  'disk-cache-dir',
+// Give each instance its own Chromium session data (network cache, GPU cache, etc.)
+// so multiple windows don't fight over disk-cache locks.
+app.setPath(
+  'sessionData',
   path.join(app.getPath('temp'), `claude-terminal-${process.pid}`),
 );
 
