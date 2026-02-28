@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, Notification } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, Notification, shell } from 'electron';
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -92,6 +92,21 @@ const createWindow = () => {
     : 'ClaudeTerminal';
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow!.setTitle(initialTitle);
+  });
+
+  // Open clicked links in the user's default browser instead of Electron.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  // Prevent the main window from navigating away (e.g. drag-and-drop a URL).
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const appUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL || 'file://';
+    if (!url.startsWith(appUrl)) {
+      event.preventDefault();
+      shell.openExternal(url);
+    }
   });
 
   // Open DevTools with Ctrl+Shift+I.
