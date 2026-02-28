@@ -214,8 +214,8 @@ export default function App() {
   const handleNewTabWithWorktree = async (name: string) => {
     setShowNewTabDialog(false);
     setShowWorktreeDialog(false);
-    await window.claudeTerminal.createWorktree(name);
-    const tab = await window.claudeTerminal.createTab(name);
+    const worktreePath = await window.claudeTerminal.createWorktree(name);
+    const tab = await window.claudeTerminal.createTab(worktreePath);
     setActiveTabId(tab.id);
   };
 

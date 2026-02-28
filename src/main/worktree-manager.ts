@@ -31,14 +31,15 @@ export class WorktreeManager {
     return worktreePath;
   }
 
-  remove(name: string): void {
-    const worktreePath = path.join(this.rootDir, '.claude', 'worktrees', name);
+  remove(worktreePath: string): void {
+    // Derive the branch name from the worktree directory name
+    const branchName = path.basename(worktreePath);
     execSync(
       `git worktree remove "${worktreePath}" --force`,
       { cwd: this.rootDir, encoding: 'utf-8' },
     );
     try {
-      execSync(`git branch -D "${name}"`, { cwd: this.rootDir, encoding: 'utf-8' });
+      execSync(`git branch -D "${branchName}"`, { cwd: this.rootDir, encoding: 'utf-8' });
     } catch {
       // branch may not exist or may have been merged
     }

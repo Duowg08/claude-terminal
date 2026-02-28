@@ -112,5 +112,6 @@ body {
 .radio-option { display: block; padding: 4px 0; cursor: pointer; }
 .radio-option input { margin-right: 8px; }
 .branch-info { font-size: 12px; color: #808080; margin-top: 8px; }
+.validation-error { font-size: 12px; color: #f44747; margin-top: 4px; }
 .selected-dir { margin-top: 8px; font-family: 'Cascadia Code', monospace; color: #4ec9b0; }
 .dir-section, .permission-section { margin-bottom: 24px; }
