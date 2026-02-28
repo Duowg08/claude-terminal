@@ -6,6 +6,13 @@ export interface WorktreeInfo {
   branch: string;
 }
 
+export interface WorktreeDetails {
+  name: string;
+  path: string;
+  clean: boolean;
+  changesCount: number;
+}
+
 export class WorktreeManager {
   private rootDir: string;
 
@@ -61,5 +68,28 @@ export class WorktreeManager {
           ? { path: match[1].trim(), branch: match[2] }
           : { path: line.trim(), branch: 'unknown' };
       });
+  }
+
+  listDetails(): WorktreeDetails[] {
+    const worktrees = this.list();
+    // Skip first entry (main worktree)
+    return worktrees.slice(1).map((wt) => {
+      const name = path.basename(wt.path);
+      let statusOutput = '';
+      try {
+        statusOutput = String(
+          execSync('git status --porcelain', { cwd: wt.path, encoding: 'utf-8' })
+        );
+      } catch {
+        // worktree may be in a broken state
+      }
+      const lines = statusOutput.trim().split('\n').filter(Boolean);
+      return {
+        name,
+        path: wt.path,
+        clean: lines.length === 0,
+        changesCount: lines.length,
+      };
+    });
   }
 }
