@@ -19,7 +19,7 @@ export default function App() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
   const [showWorktreeManager, setShowWorktreeManager] = useState(false);
-  const [worktreeCount, setWorktreeCount] = useState(0);
+
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
   const [remoteInfo, setRemoteInfo] = useState<RemoteAccessInfo>({
     status: 'inactive', tunnelUrl: null, token: null, error: null,
@@ -190,19 +190,7 @@ export default function App() {
     window.claudeTerminal.setWindowTitle(title);
   }, [tabs, workspaceDir, branch]);
 
-  // Track worktree count for hamburger menu
-  useEffect(() => {
-    if (appState !== 'running') return;
-    const updateCount = async () => {
-      try {
-        const details = await window.claudeTerminal.listWorktreeDetails();
-        setWorktreeCount(details.length);
-      } catch { /* session may not be started */ }
-    };
-    updateCount();
-    const interval = setInterval(updateCount, 5000);
-    return () => clearInterval(interval);
-  }, [appState]);
+
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -341,7 +329,6 @@ export default function App() {
         onNewWorktreeTab={() => setShowWorktreeDialog(true)}
         onNewShellTab={handleNewShellTab}
         onReorderTabs={handleReorderTabs}
-        worktreeCount={worktreeCount}
         onManageWorktrees={() => setShowWorktreeManager(true)}
         onManageHooks={() => setShowHookManager(true)}
         remoteInfo={remoteInfo}

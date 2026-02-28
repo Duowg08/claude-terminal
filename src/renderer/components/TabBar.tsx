@@ -14,7 +14,6 @@ interface TabBarProps {
   onNewWorktreeTab: () => void;
   onNewShellTab: (shellType: 'powershell' | 'wsl', afterTabId?: string) => void;
   onReorderTabs: (tabs: TabType[]) => void;
-  worktreeCount: number;
   onManageWorktrees: () => void;
   onManageHooks: () => void;
   remoteInfo: RemoteAccessInfo;
@@ -32,7 +31,6 @@ export default function TabBar({
   onNewWorktreeTab,
   onNewShellTab,
   onReorderTabs,
-  worktreeCount,
   onManageWorktrees,
   onManageHooks,
   remoteInfo,
@@ -150,7 +148,7 @@ export default function TabBar({
         onActivate={onActivateRemote}
         onDeactivate={onDeactivateRemote}
       />
-      <HamburgerMenu worktreeCount={worktreeCount} onManageWorktrees={onManageWorktrees} onManageHooks={onManageHooks} />
+      <HamburgerMenu onManageWorktrees={onManageWorktrees} onManageHooks={onManageHooks} />
     </div>
   );
 }

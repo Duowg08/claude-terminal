@@ -234,7 +234,6 @@ function RemoteApp({ initialTabs, initialActiveTabId, initialTermSizes, onDiscon
         onNewWorktreeTab={noop}
         onNewShellTab={noop}
         onReorderTabs={noop}
-        worktreeCount={0}
         onManageWorktrees={noop}
         onManageHooks={noop}
         remoteInfo={remoteInfo}
