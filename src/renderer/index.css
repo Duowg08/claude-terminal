@@ -155,3 +155,28 @@ body {
 .branch-info { font-size: 12px; color: #808080; margin-top: 8px; }
 .validation-error { font-size: 12px; color: #f44747; margin-top: 4px; }
 .selected-dir { margin-top: 8px; font-family: 'Cascadia Code', monospace; color: #4ec9b0; }
+
+/* Hamburger menu */
+.hamburger-menu { position: relative; margin-left: auto; -webkit-app-region: no-drag; }
+
+.hamburger-btn {
+  background: none; border: none; color: #808080;
+  cursor: pointer; padding: 4px 12px; display: flex; align-items: center;
+}
+.hamburger-btn:hover { color: #fff; }
+
+.hamburger-dropdown {
+  position: absolute; top: 100%; right: 0;
+  background: #252526; border: 1px solid #3c3c3c; border-radius: 6px;
+  min-width: 200px; padding: 4px 0; z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.hamburger-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 12px; background: none; border: none;
+  color: #d4d4d4; font-size: 13px; cursor: pointer; text-align: left;
+}
+.hamburger-item:hover:not(:disabled) { background: #2a2d2e; }
+.hamburger-item:disabled { color: #555; cursor: default; }
+.hamburger-item-hint { margin-left: auto; font-size: 11px; color: #555; }
