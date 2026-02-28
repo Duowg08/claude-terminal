@@ -458,6 +458,13 @@ function registerIpcHandlers() {
 // ---------------------------------------------------------------------------
 // App lifecycle
 // ---------------------------------------------------------------------------
+
+// Give each instance its own disk cache so multiple windows don't fight over locks.
+app.commandLine.appendSwitch(
+  'disk-cache-dir',
+  path.join(app.getPath('temp'), `claude-terminal-${process.pid}`),
+);
+
 app.on('ready', async () => {
   // Start the named-pipe IPC server for hook communication.
   try {
