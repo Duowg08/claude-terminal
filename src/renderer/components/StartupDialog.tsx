@@ -32,6 +32,13 @@ export default function StartupDialog({ onStart }: StartupDialogProps) {
     }).catch(() => {});
   }, []);
 
+  const handleRemoveDir = async (dir: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await window.claudeTerminal.removeRecentDir(dir);
+    setRecentDirs(prev => prev.filter(d => d !== dir));
+    if (selectedDir === dir) setSelectedDir(null);
+  };
+
   const handleBrowse = async () => {
     const dir = await window.claudeTerminal.selectDirectory();
     if (dir) {
@@ -60,7 +67,14 @@ export default function StartupDialog({ onStart }: StartupDialogProps) {
                   className={selectedDir === dir ? 'selected' : ''}
                   onClick={() => setSelectedDir(dir)}
                 >
-                  {dir}
+                  <span className="dir-path">{dir}</span>
+                  <button
+                    className="remove-dir-btn"
+                    onClick={(e) => handleRemoveDir(dir, e)}
+                    title="Remove from history"
+                  >
+                    ×
+                  </button>
                 </li>
               ))}
             </ul>

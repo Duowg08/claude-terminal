@@ -52,6 +52,11 @@ export class SettingsStore {
     this.save();
   }
 
+  removeRecentDir(dir: string): void {
+    this.data.recentDirs = this.data.recentDirs.filter(d => d !== dir);
+    this.save();
+  }
+
   getPermissionMode(): PermissionMode {
     return this.data.permissionMode;
   }

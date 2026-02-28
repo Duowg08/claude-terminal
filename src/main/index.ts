@@ -450,6 +450,10 @@ function registerIpcHandlers() {
     return settings.getRecentDirs();
   });
 
+  ipcMain.handle('settings:removeRecentDir', async (_event, dir: string) => {
+    settings.removeRecentDir(dir);
+  });
+
   ipcMain.handle('settings:permissionMode', async () => {
     return settings.getPermissionMode();
   });

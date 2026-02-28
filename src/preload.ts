@@ -31,6 +31,8 @@ const api = {
   // Settings
   getRecentDirs: (): Promise<string[]> =>
     ipcRenderer.invoke('settings:recentDirs'),
+  removeRecentDir: (dir: string): Promise<void> =>
+    ipcRenderer.invoke('settings:removeRecentDir', dir),
   getPermissionMode: (): Promise<PermissionMode> =>
     ipcRenderer.invoke('settings:permissionMode'),
 
