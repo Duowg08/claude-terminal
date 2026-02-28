@@ -326,9 +326,7 @@ function registerIpcHandlers() {
   );
 
   ipcMain.handle('session:getSavedTabs', async (_event, dir: string) => {
-    const saved = settings.getSessions(dir);
-    settings.clearSessions(dir);
-    return saved;
+    return settings.getSessions(dir);
   });
 
   // ---- Tabs ----

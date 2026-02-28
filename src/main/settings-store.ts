@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
 import { PermissionMode, SavedTab } from '@shared/types';
+import { log } from './logger';
 
 const MAX_RECENT_DIRS = 10;
 const SESSIONS_DIR = '.claude-terminal';
@@ -73,25 +74,27 @@ export class SettingsStore {
   }
 
   getSessions(dir: string): SavedTab[] {
+    const filePath = this.sessionsPath(dir);
     try {
-      const raw = fs.readFileSync(this.sessionsPath(dir), 'utf-8');
-      return JSON.parse(raw) as SavedTab[];
-    } catch {
+      const raw = fs.readFileSync(filePath, 'utf-8');
+      const tabs = JSON.parse(raw) as SavedTab[];
+      log.info('[sessions] loaded', tabs.length, 'saved tabs from', filePath);
+      return tabs;
+    } catch (err) {
+      log.info('[sessions] no saved sessions at', filePath, String(err));
       return [];
     }
   }
 
   saveSessions(dir: string, tabs: SavedTab[]): void {
-    const sessDir = path.join(dir, SESSIONS_DIR);
-    fs.mkdirSync(sessDir, { recursive: true });
-    fs.writeFileSync(this.sessionsPath(dir), JSON.stringify(tabs, null, 2), 'utf-8');
-  }
-
-  clearSessions(dir: string): void {
+    const filePath = this.sessionsPath(dir);
     try {
-      fs.unlinkSync(this.sessionsPath(dir));
-    } catch {
-      // file may not exist
+      const sessDir = path.join(dir, SESSIONS_DIR);
+      fs.mkdirSync(sessDir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(tabs, null, 2), 'utf-8');
+      log.debug('[sessions] persisted', tabs.length, 'tabs to', filePath);
+    } catch (err) {
+      log.error('[sessions] failed to save sessions to', filePath, String(err));
     }
   }
 }

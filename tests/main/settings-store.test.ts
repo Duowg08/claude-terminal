@@ -63,3 +63,51 @@ describe('SettingsStore', () => {
     expect(store2.getRecentDirs()).toContain('D:\\dev\\Persist');
   });
 });
+
+describe('SettingsStore sessions', () => {
+  let store: SettingsStore;
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ct-test-'));
+    store = new SettingsStore(path.join(tmpDir, 'settings.json'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('getSessions returns empty array when no file exists', () => {
+    const result = store.getSessions(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  it('saveSessions writes and getSessions reads back', () => {
+    const tabs = [{ name: 'Tab 1', cwd: '/tmp', worktree: null, sessionId: 'abc-123' }];
+    store.saveSessions(tmpDir, tabs);
+    const result = store.getSessions(tmpDir);
+    expect(result).toEqual(tabs);
+  });
+
+  it('saveSessions overwrites previous sessions', () => {
+    const tabs1 = [{ name: 'Tab 1', cwd: '/tmp', worktree: null, sessionId: 'abc' }];
+    const tabs2 = [{ name: 'Tab 2', cwd: '/tmp', worktree: null, sessionId: 'def' }];
+    store.saveSessions(tmpDir, tabs1);
+    store.saveSessions(tmpDir, tabs2);
+    const result = store.getSessions(tmpDir);
+    expect(result).toEqual(tabs2);
+  });
+
+  it('getSessions returns empty array on corrupted JSON', () => {
+    const sessDir = path.join(tmpDir, '.claude-terminal');
+    fs.mkdirSync(sessDir, { recursive: true });
+    fs.writeFileSync(path.join(sessDir, 'sessions.json'), '{corrupt', 'utf-8');
+    const result = store.getSessions(tmpDir);
+    expect(result).toEqual([]);
+  });
+
+  it('saveSessions does not throw on bad directory', () => {
+    const badDir = path.join(tmpDir, 'no', 'such', 'deep', 'path');
+    expect(() => store.saveSessions(badDir, [{ name: 'x', cwd: '/', worktree: null, sessionId: 'z' }])).not.toThrow();
+  });
+});
