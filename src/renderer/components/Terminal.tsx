@@ -122,13 +122,19 @@ export default function Terminal({ tabId, isVisible }: TerminalProps) {
       attachedRef.current = tabId;
     }
 
-    // Right-click copies selected text to clipboard
+    // Right-click: copy selection if any, otherwise paste from clipboard
     const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
       const selection = term.getSelection();
       if (selection) {
-        e.preventDefault();
         navigator.clipboard.writeText(selection);
         term.clearSelection();
+      } else {
+        navigator.clipboard.readText().then((text) => {
+          if (text) {
+            term.paste(text);
+          }
+        });
       }
     };
     container.addEventListener('contextmenu', handleContextMenu);
