@@ -441,6 +441,7 @@ function registerIpcHandlers() {
       const tab = tabManager.getTab(tabId);
       if (tab) {
         sendToRenderer('tab:updated', tab);
+        persistSessions();
       }
     },
   );
