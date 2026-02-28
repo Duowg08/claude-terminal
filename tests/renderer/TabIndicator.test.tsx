@@ -3,9 +3,18 @@ import { describe, it, expect } from 'vitest';
 import TabIndicator from '../../src/renderer/components/TabIndicator';
 
 describe('TabIndicator', () => {
-  it('renders nothing for new status', () => {
+  it('renders a static icon for new status', () => {
     const { container } = render(<TabIndicator status="new" />);
-    expect(container.innerHTML).toBe('');
+    const svg = container.querySelector('svg');
+    expect(svg).toBeTruthy();
+    expect(container.firstElementChild).toHaveClass('tab-indicator');
+  });
+
+  it('renders a static icon for shell status', () => {
+    const { container } = render(<TabIndicator status="shell" />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeTruthy();
+    expect(container.firstElementChild).toHaveClass('tab-indicator');
   });
 
   it('renders a spinning icon for working status', () => {
