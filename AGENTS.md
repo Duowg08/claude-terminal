@@ -72,6 +72,41 @@ pnpm run test:watch     # Watch mode
 
 - **NEVER merge worktree branches into master (or any other branch) without explicit user permission.** Worktrees are isolated for a reason. Always ask before merging, rebasing, or otherwise integrating worktree branches.
 
+## Documentation
+
+Feature architecture docs live in `docs/`. Start with the overview docs, then dive into feature-specific docs as needed.
+
+### Overview
+
+| Doc | Contents |
+|-----|----------|
+| [Architecture](docs/architecture.md) | System design, process model, data flow diagrams, security model |
+| [Getting Started](docs/getting-started.md) | Prerequisites, installation, usage guide, troubleshooting |
+| [Development](docs/development.md) | Dev setup, code organization, testing, adding features |
+
+### Feature Docs
+
+| Doc | Contents |
+|-----|----------|
+| [Tab Management](docs/tab-management.md) | Tab types (claude/shell), lifecycle, status state machine, drag-drop, rename, AI auto-naming, permission modes |
+| [PTY Management](docs/pty-management.md) | Process spawning (ConPTY), I/O data flow, flow control (backpressure), process termination, resize |
+| [Terminal Rendering](docs/terminal-rendering.md) | xterm.js integration, instance caching, key event filtering, resize handling, flow control, serialization |
+| [Hook System](docs/hooks.md) | Claude Code hook scripts, named pipe IPC, hook installation, message format, event types |
+| [Worktree Integration](docs/worktree-integration.md) | Git worktree CRUD, branch tracking, worktree-scoped tabs, close dialogs (dirty state handling) |
+| [Session Persistence](docs/session-persistence.md) | Two-tier persistence (global settings + per-directory sessions), tab restoration, recent dirs |
+| [Remote Access](docs/remote-access.md) | Cloudflare tunnel, WebSocket server, PIN auth, terminal serialization, web client |
+| [IPC Architecture](docs/ipc.md) | Preload bridge, IPC patterns (handle/send/event), channel reference, type safety |
+
+### Keeping Docs Up to Date
+
+Documentation must stay in sync with code. When implementing or changing a feature:
+
+1. **Identify affected docs.** Check the feature docs table above — most changes touch at least one doc. If you add a new IPC channel, update `docs/ipc.md`. If you change tab status flow, update `docs/tab-management.md`. And so on.
+2. **Update existing docs** to reflect the change — new flows, changed behavior, removed features, renamed types. Don't leave stale information.
+3. **New feature = new doc.** If a feature doesn't fit into any existing doc, create `docs/<feature-name>.md` and add a row to the feature docs table above.
+4. **Doc style.** Match the existing docs: technical prose, ASCII flow diagrams for data/control flow, TypeScript code blocks for types/interfaces, tables for structured references, a "Key Files" table at the end. No fluff.
+5. **Update this table.** When adding or removing a doc, update the feature docs table in this section so AGENTS.md stays the single index of all documentation.
+
 ## Common Patterns
 
 - **Path aliases**: `@shared/*` -> `src/shared/*`, `@main/*` -> `src/main/*` (configured in tsconfig.json, vitest.config.ts, vite.main.config.mjs)
