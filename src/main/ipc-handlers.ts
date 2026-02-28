@@ -38,7 +38,7 @@ export interface IpcHandlerDeps {
   getRemoteAccessInfo: () => RemoteAccessInfo;
 }
 
-export function registerIpcHandlers(deps: IpcHandlerDeps): void {
+export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
   const { tabManager, ptyManager, settings, state } = deps;
 
   // Per-tab flow control state for PTY data buffering
@@ -46,6 +46,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
 
   // Git HEAD watcher — detects branch changes
   let gitHeadWatcher: fs.FSWatcher | null = null;
+  let gitHeadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ---- Session ----
   ipcMain.handle(
@@ -70,16 +71,16 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       });
 
       // Watch .git/HEAD for branch changes
+      if (gitHeadDebounceTimer) { clearTimeout(gitHeadDebounceTimer); gitHeadDebounceTimer = null; }
       gitHeadWatcher?.close();
       gitHeadWatcher = null;
       let lastKnownBranch = '';
       try { lastKnownBranch = state.worktreeManager!.getCurrentBranch(); } catch {}
       const gitHeadPath = path.join(dir, '.git', 'HEAD');
       if (fs.existsSync(gitHeadPath)) {
-        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         gitHeadWatcher = fs.watch(gitHeadPath, () => {
-          if (debounceTimer) clearTimeout(debounceTimer);
-          debounceTimer = setTimeout(() => {
+          if (gitHeadDebounceTimer) clearTimeout(gitHeadDebounceTimer);
+          gitHeadDebounceTimer = setTimeout(() => {
             try {
               const branch = state.worktreeManager?.getCurrentBranch() ?? null;
               deps.sendToRenderer('git:branchChanged', branch);
@@ -520,4 +521,16 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle('remote:getInfo', async () => {
     return deps.getRemoteAccessInfo();
   });
+
+  // Return cleanup function for app shutdown
+  return () => {
+    if (gitHeadDebounceTimer) {
+      clearTimeout(gitHeadDebounceTimer);
+      gitHeadDebounceTimer = null;
+    }
+    if (gitHeadWatcher) {
+      gitHeadWatcher.close();
+      gitHeadWatcher = null;
+    }
+  };
 }

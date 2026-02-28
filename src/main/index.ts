@@ -30,6 +30,7 @@ const PIPE_NAME = `\\\\.\\pipe\\claude-terminal-${process.pid}`;
 let ipcServer: HookIpcServer | null = null;
 const tunnelManager = new TunnelManager();
 let webRemoteServer: WebRemoteServer | null = null;
+let cleanupIpcHandlers: (() => void) | null = null;
 const REMOTE_PORT = 3456;
 
 // ---------------------------------------------------------------------------
@@ -281,7 +282,7 @@ app.on('ready', async () => {
 
   ipcServer.onMessage(handleHookMessage);
 
-  registerIpcHandlers({
+  cleanupIpcHandlers = registerIpcHandlers({
     tabManager, ptyManager, settings, state,
     sendToRenderer, persistSessions, cleanupNamingFlag,
     activateRemoteAccess, deactivateRemoteAccess, getRemoteAccessInfo,
@@ -299,6 +300,7 @@ app.on('window-all-closed', async () => {
   }
 
   ptyManager.killAll();
+  cleanupIpcHandlers?.();
   tunnelManager.stop();
   webRemoteServer?.stop();
   if (ipcServer) {
