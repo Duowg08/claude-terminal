@@ -1,4 +1,4 @@
-import { Circle, Loader2, CheckCircle2, MessageCircle } from 'lucide-react';
+import { Circle, Loader2, CheckCircle2, MessageCircle, TerminalSquare } from 'lucide-react';
 import type { TabStatus } from '../../shared/types';
 
 const ICON_SIZE = 12;
@@ -25,6 +25,12 @@ export default function TabIndicator({ status }: TabIndicatorProps) {
       return (
         <span className="tab-indicator tab-indicator-pulse">
           <MessageCircle size={ICON_SIZE} />
+        </span>
+      );
+    case 'shell':
+      return (
+        <span className="tab-indicator">
+          <TerminalSquare size={ICON_SIZE} />
         </span>
       );
     case 'new':

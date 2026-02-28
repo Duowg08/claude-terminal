@@ -219,3 +219,47 @@ body {
   background: none; color: #d4d4d4; font-size: 11px; cursor: pointer;
 }
 .wt-confirm-no:hover { background: #2a2d2e; }
+
+/* Shell tab styling */
+.tab-shell { border-top: 2px solid transparent; }
+.tab-shell-powershell { border-top-color: #012456; }
+.tab-shell-wsl { border-top-color: #e95420; }
+.tab-status-shell .tab-indicator { color: #569cd6; }
+
+/* Tab chevron dropdown */
+.tab-chevron-wrapper { position: relative; }
+.tab-chevron {
+  background: none; border: none; color: #808080;
+  cursor: pointer; font-size: 12px; padding: 0 2px;
+  -webkit-app-region: no-drag;
+}
+.tab-chevron:hover { color: #fff; }
+.tab-chevron-dropdown {
+  position: absolute; top: 100%; left: 0;
+  background: #252526; border: 1px solid #3c3c3c; border-radius: 4px;
+  min-width: 160px; padding: 4px 0; z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.tab-chevron-item {
+  display: block; width: 100%; padding: 6px 12px;
+  background: none; border: none; color: #d4d4d4;
+  font-size: 12px; cursor: pointer; text-align: left;
+}
+.tab-chevron-item:hover { background: #2a2d2e; }
+
+/* New tab dropdown menu */
+.new-tab-menu { position: relative; -webkit-app-region: no-drag; }
+.new-tab-dropdown {
+  position: absolute; top: 100%; left: 0;
+  background: #252526; border: 1px solid #3c3c3c; border-radius: 6px;
+  min-width: 200px; padding: 4px 0; z-index: 50;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.new-tab-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 8px 12px; background: none; border: none;
+  color: #d4d4d4; font-size: 13px; cursor: pointer; text-align: left;
+}
+.new-tab-item:hover { background: #2a2d2e; }
+.new-tab-shortcut { font-size: 11px; color: #808080; }
+.new-tab-separator { height: 1px; background: #3c3c3c; margin: 4px 8px; }

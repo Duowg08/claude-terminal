@@ -5,7 +5,6 @@ import TabBar from './components/TabBar';
 import Terminal from './components/Terminal';
 import { destroyTerminal } from './components/terminalCache';
 import StatusBar from './components/StatusBar';
-import NewTabDialog from './components/NewTabDialog';
 import { buildWindowTitle } from '../shared/window-title';
 import WorktreeNameDialog from './components/WorktreeNameDialog';
 import WorktreeManagerDialog from './components/WorktreeManagerDialog';
@@ -16,11 +15,41 @@ export default function App() {
   const [appState, setAppState] = useState<AppState>('startup');
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [showNewTabDialog, setShowNewTabDialog] = useState(false);
   const [showWorktreeDialog, setShowWorktreeDialog] = useState(false);
   const [showWorktreeManager, setShowWorktreeManager] = useState(false);
   const [worktreeCount, setWorktreeCount] = useState(0);
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
+
+  const handleSelectTab = useCallback(async (tabId: string) => {
+    setActiveTabId(tabId);
+    await window.claudeTerminal.switchTab(tabId);
+  }, []);
+
+  const handleCloseTab = useCallback(async (tabId: string) => {
+    await window.claudeTerminal.closeTab(tabId);
+  }, []);
+
+  const handleRenameTab = useCallback(async (tabId: string, name: string) => {
+    await window.claudeTerminal.renameTab(tabId, name);
+  }, []);
+
+  const handleNewTabWithoutWorktree = useCallback(async () => {
+    const tab = await window.claudeTerminal.createTab(null);
+    setActiveTabId(tab.id);
+  }, []);
+
+  const handleNewShellTab = useCallback(async (shellType: 'powershell' | 'wsl', afterTabId?: string) => {
+    const tab = await window.claudeTerminal.createShellTab(shellType, afterTabId);
+    setActiveTabId(tab.id);
+  }, []);
+
+  const handleNewTabWithWorktree = async (name: string) => {
+    setShowWorktreeDialog(false);
+    await window.claudeTerminal.createWorktree(name);
+    const tab = await window.claudeTerminal.createTab(name);
+    setActiveTabId(tab.id);
+  };
+
   // Auto-start when a CLI directory was provided (skip StartupDialog)
   useEffect(() => {
     let cancelled = false;
@@ -54,12 +83,12 @@ export default function App() {
       setAppState('running');
 
       if (allTabs.length === 0) {
-        setShowNewTabDialog(true);
+        handleNewTabWithoutWorktree();
       }
     })();
 
     return () => { cancelled = true; };
-  }, []);
+  }, [handleNewTabWithoutWorktree]);
 
   // Listen for tab updates from main process (registered once)
   useEffect(() => {
@@ -136,6 +165,20 @@ export default function App() {
         return;
       }
 
+      // Ctrl+P: new PowerShell tab
+      if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        handleNewShellTab('powershell');
+        return;
+      }
+
+      // Ctrl+L: new WSL tab
+      if (e.ctrlKey && e.key === 'l') {
+        e.preventDefault();
+        handleNewShellTab('wsl');
+        return;
+      }
+
       // Ctrl+F4: close tab
       if (e.ctrlKey && e.key === 'F4') {
         e.preventDefault();
@@ -184,7 +227,7 @@ export default function App() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [appState, tabs, activeTabId]);
+  }, [appState, tabs, activeTabId, handleNewTabWithoutWorktree, handleNewShellTab, handleSelectTab, handleCloseTab]);
 
   const handleStartSession = async (dir: string, mode: PermissionMode) => {
     await window.claudeTerminal.startSession(dir, mode);
@@ -208,37 +251,10 @@ export default function App() {
     setActiveTabId(activeId);
     setAppState('running');
 
-    // Only show new tab dialog if no tabs were restored
+    // Only create a tab if no tabs were restored
     if (allTabs.length === 0) {
-      setShowNewTabDialog(true);
+      handleNewTabWithoutWorktree();
     }
-  };
-
-  const handleSelectTab = useCallback(async (tabId: string) => {
-    setActiveTabId(tabId);
-    await window.claudeTerminal.switchTab(tabId);
-  }, []);
-
-  const handleCloseTab = useCallback(async (tabId: string) => {
-    await window.claudeTerminal.closeTab(tabId);
-  }, []);
-
-  const handleRenameTab = useCallback(async (tabId: string, name: string) => {
-    await window.claudeTerminal.renameTab(tabId, name);
-  }, []);
-
-  const handleNewTabWithWorktree = async (name: string) => {
-    setShowNewTabDialog(false);
-    setShowWorktreeDialog(false);
-    await window.claudeTerminal.createWorktree(name);
-    const tab = await window.claudeTerminal.createTab(name);
-    setActiveTabId(tab.id);
-  };
-
-  const handleNewTabWithoutWorktree = async () => {
-    setShowNewTabDialog(false);
-    const tab = await window.claudeTerminal.createTab(null);
-    setActiveTabId(tab.id);
   };
 
   if (appState === 'startup') {
@@ -257,7 +273,9 @@ export default function App() {
         onSelectTab={handleSelectTab}
         onCloseTab={handleCloseTab}
         onRenameTab={handleRenameTab}
-        onNewTab={() => setShowNewTabDialog(true)}
+        onNewClaudeTab={handleNewTabWithoutWorktree}
+        onNewWorktreeTab={() => setShowWorktreeDialog(true)}
+        onNewShellTab={handleNewShellTab}
         worktreeCount={worktreeCount}
         onManageWorktrees={() => setShowWorktreeManager(true)}
       />
@@ -271,13 +289,6 @@ export default function App() {
         ))}
       </div>
       <StatusBar tabs={tabs} />
-      {showNewTabDialog && (
-        <NewTabDialog
-          onCreateWithWorktree={handleNewTabWithWorktree}
-          onCreateWithoutWorktree={handleNewTabWithoutWorktree}
-          onCancel={() => setShowNewTabDialog(false)}
-        />
-      )}
       {showWorktreeDialog && (
         <WorktreeNameDialog
           onCreateWithWorktree={handleNewTabWithWorktree}

@@ -8,13 +8,16 @@ interface TabProps {
   onClick: () => void;
   onClose: () => void;
   onRename: (name: string) => void;
+  onOpenShell?: (shellType: 'powershell' | 'wsl') => void;
 }
 
-export default function Tab({ tab, isActive, onClick, onClose, onRename }: TabProps) {
+export default function Tab({ tab, isActive, onClick, onClose, onRename, onOpenShell }: TabProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(tab.name);
+  const [showChevron, setShowChevron] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const tabRef = useRef<HTMLDivElement>(null);
+  const chevronRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isRenaming && inputRef.current) {
@@ -35,6 +38,18 @@ export default function Tab({ tab, isActive, onClick, onClose, onRename }: TabPr
     window.addEventListener('tab:startRename', handler);
     return () => window.removeEventListener('tab:startRename', handler);
   }, [tab.id, tab.name]);
+
+  // Outside-click handler for chevron dropdown
+  useEffect(() => {
+    if (!showChevron) return;
+    const handler = (e: MouseEvent) => {
+      if (chevronRef.current && !chevronRef.current.contains(e.target as Node)) {
+        setShowChevron(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showChevron]);
 
   const commitRename = () => {
     setIsRenaming(false);
@@ -62,12 +77,23 @@ export default function Tab({ tab, isActive, onClick, onClose, onRename }: TabPr
     onClose();
   };
 
+  const handleChevronClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowChevron(!showChevron);
+  };
+
+  const handleOpenShell = (shellType: 'powershell' | 'wsl') => {
+    setShowChevron(false);
+    onOpenShell?.(shellType);
+  };
+
   const statusClass = `tab-status-${tab.status}`;
+  const shellClass = tab.type !== 'claude' ? `tab-shell tab-shell-${tab.type}` : '';
 
   return (
     <div
       ref={tabRef}
-      className={`tab ${isActive ? 'tab-active' : ''} ${statusClass}`}
+      className={`tab ${isActive ? 'tab-active' : ''} ${statusClass} ${shellClass}`}
       onClick={onClick}
       onDoubleClick={handleDoubleClick}
     >
@@ -86,6 +112,17 @@ export default function Tab({ tab, isActive, onClick, onClose, onRename }: TabPr
       )}
       {tab.worktree && (
         <span className="tab-worktree">[{tab.worktree}]</span>
+      )}
+      {tab.type === 'claude' && onOpenShell && (
+        <div className="tab-chevron-wrapper" ref={chevronRef}>
+          <button className="tab-chevron" onClick={handleChevronClick} title="Open shell here">&#9662;</button>
+          {showChevron && (
+            <div className="tab-chevron-dropdown">
+              <button className="tab-chevron-item" onClick={() => handleOpenShell('powershell')}>PowerShell here</button>
+              <button className="tab-chevron-item" onClick={() => handleOpenShell('wsl')}>WSL here</button>
+            </div>
+          )}
+        </div>
       )}
       <button className="tab-close" onClick={handleCloseClick} title="Close tab">
         &times;
