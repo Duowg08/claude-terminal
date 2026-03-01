@@ -103,7 +103,7 @@ export default function TabBar({
           onClose={onCloseTab}
           onRename={onRenameTab}
           onRenameHandled={onRenameHandled}
-          onOpenShell={onNewShellTab}
+          onOpenShell={tab.type === 'claude' ? onNewShellTab : undefined}
           isDragOver={dragOverTabId === tab.id}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
@@ -138,14 +138,14 @@ export default function TabBar({
             <div className="new-tab-separator" />
             <button
               className="new-tab-item"
-              onClick={() => { setShowNewTabMenu(false); onNewShellTab('powershell'); }}
+              onClick={() => { setShowNewTabMenu(false); onNewShellTab('powershell', activeTabId ?? undefined); }}
             >
               <span>PowerShell</span>
               <span className="new-tab-shortcut">Ctrl+P</span>
             </button>
             <button
               className="new-tab-item"
-              onClick={() => { setShowNewTabMenu(false); onNewShellTab('wsl'); }}
+              onClick={() => { setShowNewTabMenu(false); onNewShellTab('wsl', activeTabId ?? undefined); }}
             >
               <span>WSL</span>
               <span className="new-tab-shortcut">Ctrl+L</span>

@@ -68,7 +68,21 @@ export default function App() {
 
   const handleNewShellTab = useCallback(async (shellType: 'powershell' | 'wsl', afterTabId?: string) => {
     const tab = await window.claudeTerminal.createShellTab(shellType, afterTabId);
+    if (afterTabId) {
+      // Insert at correct position (onTabUpdate would just append)
+      setTabs((prev) => {
+        const filtered = prev.filter(t => t.id !== tab.id);
+        const afterIdx = filtered.findIndex(t => t.id === afterTabId);
+        if (afterIdx >= 0) {
+          const next = [...filtered];
+          next.splice(afterIdx + 1, 0, tab);
+          return next;
+        }
+        return [...filtered, tab];
+      });
+    }
     setActiveTabId(tab.id);
+    await window.claudeTerminal.switchTab(tab.id);
   }, []);
 
   const handleReorderTabs = useCallback((reordered: Tab[]) => {
@@ -247,14 +261,14 @@ export default function App() {
       // Ctrl+P: new PowerShell tab
       if (e.ctrlKey && e.key === 'p') {
         e.preventDefault();
-        handleNewShellTab('powershell');
+        handleNewShellTab('powershell', currentActiveId ?? undefined);
         return;
       }
 
       // Ctrl+L: new WSL tab
       if (e.ctrlKey && e.key === 'l') {
         e.preventDefault();
-        handleNewShellTab('wsl');
+        handleNewShellTab('wsl', currentActiveId ?? undefined);
         return;
       }
 
