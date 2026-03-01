@@ -81,6 +81,13 @@ export class TunnelManager extends EventEmitter {
     const t = Tunnel.quick(`http://localhost:${localPort}`);
     this.tunnel = t;
 
+    // Collect stderr so we can report a meaningful error on crash.
+    let stderrBuf = '';
+    t.on('stderr', (data: string) => {
+      stderrBuf += data;
+      log.info(`[tunnel] ${data.trimEnd()}`);
+    });
+
     t.on('url', (url: string) => {
       this._url = url;
       this._active = true;
@@ -100,9 +107,18 @@ export class TunnelManager extends EventEmitter {
 
     t.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
       log.info(`[tunnel] exited code=${code} signal=${signal}`);
+      const wasActive = this._active;
       this._url = null;
       this._active = false;
       this.tunnel = null;
+
+      // If the process crashed before the tunnel was established, surface
+      // the last stderr output as an error so the UI doesn't stay stuck.
+      if (code !== 0 && !wasActive) {
+        const lastLine = stderrBuf.trim().split('\n').pop() || `cloudflared exited with code ${code}`;
+        this.emit('error', new Error(lastLine));
+      }
+
       this.emit('exit', code, signal);
     });
   }

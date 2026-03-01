@@ -208,11 +208,17 @@ tunnelManager.on('connected', () => {
   sendToRenderer('remote:updated', getRemoteAccessInfo());
 });
 tunnelManager.on('error', (err: Error) => {
+  // Tear down the web server so the state resets to a retryable error.
+  webRemoteServer?.stop();
+  webRemoteServer = null;
   sendToRenderer('remote:updated', {
     status: 'error', tunnelUrl: null, token: null, error: String(err),
   });
 });
 tunnelManager.on('exit', () => {
+  // If an error already tore things down, getRemoteAccessInfo returns 'inactive'
+  // which is fine — the renderer already has the error state from the error event.
+  if (!webRemoteServer) return;
   sendToRenderer('remote:updated', getRemoteAccessInfo());
 });
 
