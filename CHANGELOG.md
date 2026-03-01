@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.1](https://github.com/Mr8BitHK/claude-terminal/compare/v1.2.0...v1.2.1) (2026-03-01)
+
+### Bug Fixes
+
+* set executableName only on Linux to avoid breaking Squirrel ([e70d4b9](https://github.com/Mr8BitHK/claude-terminal/commit/e70d4b964b47bb4262dfe42eefde9691260e5cd4))
+
 ## [1.2.0](https://github.com/Mr8BitHK/claude-terminal/compare/v1.1.0...v1.2.0) (2026-03-01)
 
 ### Features
