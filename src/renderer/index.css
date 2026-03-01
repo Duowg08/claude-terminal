@@ -39,13 +39,13 @@ body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
-.tab-indicator-spin svg { animation: spin 1s linear infinite; }
+.tab-indicator-spin svg { animation: spin 1s linear infinite; will-change: transform; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
-.tab-indicator-pulse svg { animation: pulse 1.5s ease-in-out infinite; }
+.tab-indicator-pulse svg { animation: pulse 1.5s ease-in-out infinite; will-change: opacity; }
 
 .tab-labels { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .tab-number { color: #808080; margin-right: 4px; font-size: 11px; }
