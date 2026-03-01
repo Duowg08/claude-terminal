@@ -7,8 +7,6 @@ function generateId(): string {
 export class TabManager {
   private tabs = new Map<string, Tab>();
   private activeTabId: string | null = null;
-  private nextTabNum = 1;
-
   createTab(cwd: string, worktree: string | null, type: TabType = 'claude', savedName?: string): Tab {
     const id = generateId();
     let defaultName: string;
@@ -17,7 +15,7 @@ export class TabManager {
     } else if (type === 'wsl') {
       defaultName = 'WSL';
     } else {
-      defaultName = worktree ?? `Tab ${this.nextTabNum++}`;
+      defaultName = worktree ?? 'New Tab';
     }
     const name = savedName ?? defaultName;
     const status: TabStatus = type === 'claude' ? 'new' : 'shell';
