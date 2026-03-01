@@ -12,6 +12,18 @@ body, .app {
   overflow-x: auto;
 }
 
+/* The new-tab dropdown is clipped by tab-bar overflow. Use fixed positioning
+   so it escapes the scroll container and renders above the tab bar. */
+.new-tab-menu {
+  position: static;
+}
+.new-tab-dropdown {
+  position: fixed;
+  top: 36px;
+  right: 70px;
+  left: auto;
+}
+
 /* Keep status bar pinned at the bottom */
 .status-bar {
   flex-shrink: 0;
