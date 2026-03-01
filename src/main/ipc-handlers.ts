@@ -107,6 +107,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
       state.workspaceDir = dir;
       state.permissionMode = mode;
       await settings.setPermissionMode(mode);
+      log.init(dir);
       state.worktreeManager = new WorktreeManager(dir);
       // In dev, __dirname is .vite/build/ — go up to project root.
       // In production, hooks are copied to resources/hooks/ by forge config.
