@@ -93,6 +93,7 @@ Feature architecture docs live in `docs/`. Start with the overview docs, then di
 | [Terminal Rendering](docs/terminal-rendering.md) | xterm.js integration, instance caching, key event filtering, resize handling, flow control, serialization |
 | [Hook System](docs/hooks.md) | Claude Code hook scripts, named pipe IPC, hook installation, message format, event types |
 | [Worktree Integration](docs/worktree-integration.md) | Git worktree CRUD, branch tracking, worktree-scoped tabs, close dialogs (dirty state handling) |
+| [Startup Dialog](docs/startup-dialog.md) | Directory selection (recent list, browse, double-click-to-open), permission mode picker, session launch flow |
 | [Session Persistence](docs/session-persistence.md) | Two-tier persistence (global settings + per-directory sessions), tab restoration, recent dirs |
 | [Remote Access](docs/remote-access.md) | Cloudflare tunnel, WebSocket server, PIN auth, terminal serialization, web client |
 | [IPC Architecture](docs/ipc.md) | Preload bridge, IPC patterns (handle/send/event), channel reference, type safety |

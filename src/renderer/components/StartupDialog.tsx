@@ -71,6 +71,10 @@ export default function StartupDialog({ onStart }: StartupDialogProps) {
                   aria-selected={selectedDir === dir}
                   className={selectedDir === dir ? 'selected' : ''}
                   onClick={() => setSelectedDir(dir)}
+                  onDoubleClick={() => {
+                    setSelectedDir(dir);
+                    onStart(dir, permissionMode);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
