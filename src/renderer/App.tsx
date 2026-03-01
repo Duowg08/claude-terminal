@@ -81,9 +81,13 @@ export default function App() {
   }, []);
 
   const handleNewTabWithWorktree = async (name: string) => {
-    setShowWorktreeDialog(false);
-    const tab = await window.claudeTerminal.createTabWithWorktree(name);
-    setActiveTabId(tab.id);
+    try {
+      const tab = await window.claudeTerminal.createTabWithWorktree(name);
+      setActiveTabId(tab.id);
+      setShowWorktreeDialog(false);
+    } catch (err) {
+      console.error('Failed to create tab with worktree:', err);
+    }
   };
 
   // Auto-start when a CLI directory was provided (skip StartupDialog)
