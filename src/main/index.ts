@@ -159,6 +159,8 @@ async function activateRemoteAccess(): Promise<RemoteAccessInfo> {
         `window.__serializeTerminal(${JSON.stringify(tabId)})`,
       );
     },
+    wirePtyToTab: wirePtyToTabFn!,
+    settings: { addRecentDir: (dir: string) => settings.addRecentDir(dir) },
   });
 
   try {

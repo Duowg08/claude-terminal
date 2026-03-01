@@ -1,12 +1,14 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { app } from 'electron';
 import { WebSocketServer, WebSocket } from 'ws';
+import { PERMISSION_FLAGS } from '@shared/types';
 import type { TabManager } from './tab-manager';
 import type { PtyManager } from './pty-manager';
-import type { AppState } from './ipc-handlers';
+import type { AppState, WirePtyToTabFn } from './ipc-handlers';
 import { log } from './logger';
 
 export interface WebRemoteServerDeps {
@@ -17,6 +19,8 @@ export interface WebRemoteServerDeps {
   persistSessions: () => void;
   /** Serialize a terminal's visible buffer as ANSI escape sequences. */
   serializeTerminal: (tabId: string) => Promise<string>;
+  wirePtyToTab: WirePtyToTabFn;
+  settings: { addRecentDir: (dir: string) => Promise<void> };
 }
 
 // Maps file extensions to Content-Type headers
@@ -254,7 +258,7 @@ export class WebRemoteServer {
     }
   }
 
-  private handleMessage(client: AuthenticatedSocket, msg: any): void {
+  private async handleMessage(client: AuthenticatedSocket, msg: any): Promise<void> {
     const { tabManager, ptyManager } = this.deps;
 
     switch (msg.type) {
@@ -294,6 +298,132 @@ export class WebRemoteServer {
         const tabs = tabManager.getAllTabs();
         const activeTabId = tabManager.getActiveTabId();
         client.ws.send(JSON.stringify({ type: 'tabs:sync', tabs, activeTabId }));
+        break;
+      }
+
+      case 'tab:create': {
+        const { state } = this.deps;
+        if (!state.workspaceDir) {
+          log.warn('[web-remote] tab:create ignored: no workspace');
+          break;
+        }
+        const cwd = state.workspaceDir;
+        const tab = tabManager.createTab(cwd, null, 'claude');
+
+        if (state.hookInstaller) {
+          state.hookInstaller.install(cwd);
+        }
+
+        const args: string[] = [...(PERMISSION_FLAGS[state.permissionMode] ?? [])];
+        const extraEnv: Record<string, string> = {
+          CLAUDE_TERMINAL_TAB_ID: tab.id,
+          CLAUDE_TERMINAL_PIPE: state.pipeName,
+          CLAUDE_TERMINAL_TMPDIR: os.tmpdir(),
+        };
+
+        const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
+        await this.deps.settings.addRecentDir(state.workspaceDir);
+        this.deps.wirePtyToTab(proc, tab, cwd);
+
+        // Respond to requesting client so createTab() promise resolves
+        client.ws.send(JSON.stringify({ type: 'tab:created', tab }));
+        break;
+      }
+
+      case 'tab:createWithWorktree': {
+        const { state } = this.deps;
+        if (!state.workspaceDir || !state.worktreeManager) {
+          log.warn('[web-remote] tab:createWithWorktree ignored: no workspace/worktreeManager');
+          break;
+        }
+        const worktreeName = msg.name;
+        if (typeof worktreeName !== 'string' || !worktreeName) break;
+
+        const CYAN = '\x1b[36m';
+        const GREEN = '\x1b[32m';
+        const RED = '\x1b[31m';
+        const DIM = '\x1b[2m';
+        const RESET = '\x1b[0m';
+
+        const cwd = path.join(state.workspaceDir, '.claude', 'worktrees', worktreeName);
+        const tab = tabManager.createTab(cwd, worktreeName, 'claude');
+        this.deps.sendToRenderer('tab:updated', tab);
+        this.deps.persistSessions();
+
+        // Respond immediately so createTabWithWorktree() promise resolves
+        client.ws.send(JSON.stringify({ type: 'tab:created', tab }));
+
+        const sendProgress = (text: string) => {
+          this.deps.sendToRenderer('tab:worktreeProgress', tab.id, text);
+        };
+
+        const baseBranch = await state.worktreeManager.getCurrentBranch();
+
+        // Async setup (mirrors ipc-handlers tab:createWithWorktree)
+        const doSetup = async () => {
+          if (!tabManager.getTab(tab.id)) return;
+
+          sendProgress(`${CYAN}❯${RESET} Creating worktree "${worktreeName}"...\r\n`);
+          sendProgress(`  Branch: ${worktreeName} (from ${baseBranch})\r\n`);
+          sendProgress(`  Path: .claude/worktrees/${worktreeName}\r\n`);
+
+          try {
+            await state.worktreeManager!.createAsync(worktreeName, (text) => {
+              sendProgress(`${DIM}${text}${RESET}`);
+            });
+
+            if (!tabManager.getTab(tab.id)) return;
+
+            sendProgress(`${GREEN}✓${RESET} Worktree created\r\n\r\n`);
+
+            if (state.hookEngine) {
+              state.hookEngine.emit('worktree:created', {
+                contextRoot: cwd, name: worktreeName, path: cwd, branch: worktreeName,
+              });
+            }
+
+            sendProgress(`${CYAN}❯${RESET} Starting Claude...\r\n`);
+
+            if (state.hookInstaller) {
+              state.hookInstaller.install(cwd);
+            }
+
+            const args: string[] = [
+              ...(PERMISSION_FLAGS[state.permissionMode] ?? []),
+              '-w', worktreeName,
+            ];
+            const extraEnv: Record<string, string> = {
+              CLAUDE_TERMINAL_TAB_ID: tab.id,
+              CLAUDE_TERMINAL_PIPE: state.pipeName,
+              CLAUDE_TERMINAL_TMPDIR: os.tmpdir(),
+            };
+
+            const proc = ptyManager.spawn(tab.id, state.workspaceDir!, args, extraEnv);
+            await this.deps.settings.addRecentDir(state.workspaceDir!);
+            this.deps.wirePtyToTab(proc, tab, cwd);
+          } catch (err) {
+            sendProgress(`\r\n${RED}✗${RESET} Failed to create worktree\r\n`);
+            if (err instanceof Error) {
+              sendProgress(`${RED}${err.message}${RESET}\r\n`);
+            }
+            if (tabManager.getTab(tab.id)) {
+              tabManager.removeTab(tab.id);
+              this.deps.sendToRenderer('tab:removed', tab.id);
+              this.deps.persistSessions();
+            }
+          }
+        };
+
+        setTimeout(doSetup, 50);
+        break;
+      }
+
+      case 'worktree:currentBranch': {
+        const { state } = this.deps;
+        const branch = state.worktreeManager
+          ? await state.worktreeManager.getCurrentBranch()
+          : '';
+        client.ws.send(JSON.stringify({ type: 'worktree:currentBranch', branch }));
         break;
       }
 
