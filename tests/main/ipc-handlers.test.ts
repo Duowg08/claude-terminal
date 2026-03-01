@@ -301,6 +301,30 @@ describe('registerIpcHandlers', () => {
     });
   });
 
+  describe('tab:close with removeWorktree', () => {
+    beforeEach(async () => {
+      deps.state.workspaceDir = '/test';
+      const startHandler = handlers.get('session:start')!;
+      await startHandler({}, '/test', 'bypassPermissions');
+      // Spy on hookEngine.emit after session:start creates the real HookEngine
+      vi.spyOn(deps.state.hookEngine!, 'emit');
+    });
+
+    it('emits worktree:removed hook when removing worktree on tab close', async () => {
+      (deps.tabManager.getTab as ReturnType<typeof vi.fn>).mockReturnValue({
+        id: 'tab-1', worktree: 'my-feature', cwd: '/test/.claude/worktrees/my-feature',
+        name: 'my-feature', status: 'idle', type: 'claude', pid: 123,
+      });
+
+      const handler = handlers.get('tab:close')!;
+      await handler({}, 'tab-1', true);
+
+      expect(deps.state.hookEngine!.emit).toHaveBeenCalledWith('worktree:removed', expect.objectContaining({
+        name: 'my-feature',
+      }));
+    });
+  });
+
   describe('pty flow control', () => {
     it('buffers data when paused and flushes on resume', async () => {
       // Start session and create tab to set up PTY data forwarding

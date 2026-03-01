@@ -370,6 +370,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
       if (tab?.worktree && state.worktreeManager) {
         try {
           await state.worktreeManager.remove(tab.cwd);
+          if (state.hookEngine) {
+            state.hookEngine.emit('worktree:removed', { contextRoot: state.workspaceDir!, name: path.basename(tab.cwd), path: tab.cwd });
+          }
         } catch {
           // worktree removal is best-effort
         }
