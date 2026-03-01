@@ -118,7 +118,9 @@ const Terminal = React.memo(function Terminal({ tabId, isVisible, fixedCols, fix
       const serializeAddon = new SerializeAddon();
       term.loadAddon(fitAddon);
       term.loadAddon(serializeAddon);
-      term.loadAddon(new WebLinksAddon());
+      term.loadAddon(new WebLinksAddon((_event, uri) => {
+        window.claudeTerminal.openExternal(uri);
+      }));
 
       // Let app-level shortcuts pass through to the window handler
       term.attachCustomKeyEventHandler((e) => {

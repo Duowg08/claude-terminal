@@ -72,6 +72,10 @@ const api = {
   setWindowTitle: (title: string): void =>
     ipcRenderer.send('window:setTitle', title),
 
+  // Open external URLs in default browser
+  openExternal: (url: string): void =>
+    ipcRenderer.send('shell:openExternal', url),
+
   // Startup
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke('dialog:selectDirectory'),

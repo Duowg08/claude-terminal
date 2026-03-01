@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain } from 'electron';
+import { app, dialog, ipcMain, shell } from 'electron';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -535,6 +535,11 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
     if (state.mainWindow) {
       state.mainWindow.setTitle(title);
     }
+  });
+
+  // ---- Open external URLs ----
+  ipcMain.on('shell:openExternal', (_event, url: string) => {
+    shell.openExternal(url);
   });
 
   // ---- Remote access ----
