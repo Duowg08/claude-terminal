@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Icon, SquareTerminal } from 'lucide-react';
 import { penguin } from '@lucide/lab';
 import type { Tab as TabType } from '../../shared/types';
@@ -8,18 +8,18 @@ interface TabProps {
   tab: TabType;
   index: number;
   isActive: boolean;
-  onClick: () => void;
-  onClose: () => void;
-  onRename: (name: string) => void;
-  onOpenShell?: (shellType: 'powershell' | 'wsl') => void;
-  onDragStart: (e: React.DragEvent) => void;
-  onDragOver: (e: React.DragEvent) => void;
+  onSelect: (tabId: string) => void;
+  onClose: (tabId: string) => void;
+  onRename: (tabId: string, name: string) => void;
+  onOpenShell?: (shellType: 'powershell' | 'wsl', afterTabId: string) => void;
+  onDragStart: (e: React.DragEvent, tabId: string) => void;
+  onDragOver: (e: React.DragEvent, tabId: string) => void;
   onDragEnd: () => void;
-  onDrop: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent, tabId: string) => void;
   isDragOver: boolean;
 }
 
-export default function Tab({ tab, index, isActive, onClick, onClose, onRename, onOpenShell, onDragStart, onDragOver, onDragEnd, onDrop, isDragOver }: TabProps) {
+const Tab = React.memo(function Tab({ tab, index, isActive, onSelect, onClose, onRename, onOpenShell, onDragStart, onDragOver, onDragEnd, onDrop, isDragOver }: TabProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(tab.name);
   const [showChevron, setShowChevron] = useState(false);
@@ -63,7 +63,7 @@ export default function Tab({ tab, index, isActive, onClick, onClose, onRename, 
     setIsRenaming(false);
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== tab.name) {
-      onRename(trimmed);
+      onRename(tab.id, trimmed);
     }
   };
 
@@ -82,7 +82,7 @@ export default function Tab({ tab, index, isActive, onClick, onClose, onRename, 
 
   const handleCloseClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onClose();
+    onClose(tab.id);
   };
 
   const handleChevronClick = (e: React.MouseEvent) => {
@@ -92,7 +92,7 @@ export default function Tab({ tab, index, isActive, onClick, onClose, onRename, 
 
   const handleOpenShell = (shellType: 'powershell' | 'wsl') => {
     setShowChevron(false);
-    onOpenShell?.(shellType);
+    onOpenShell?.(shellType, tab.id);
   };
 
   const statusClass = `tab-status-${tab.status}`;
@@ -102,13 +102,13 @@ export default function Tab({ tab, index, isActive, onClick, onClose, onRename, 
     <div
       ref={tabRef}
       className={`tab ${isActive ? 'tab-active' : ''} ${statusClass} ${shellClass}${isDragOver ? ' tab-drag-over' : ''}`}
-      onClick={onClick}
+      onClick={() => onSelect(tab.id)}
       onDoubleClick={handleDoubleClick}
       draggable={!isRenaming}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
+      onDragStart={(e) => onDragStart(e, tab.id)}
+      onDragOver={(e) => onDragOver(e, tab.id)}
       onDragEnd={onDragEnd}
-      onDrop={onDrop}
+      onDrop={(e) => onDrop(e, tab.id)}
     >
       {tab.type === 'claude' ? (
         <TabIndicator status={tab.status} />
@@ -154,4 +154,6 @@ export default function Tab({ tab, index, isActive, onClick, onClose, onRename, 
       </button>
     </div>
   );
-}
+});
+
+export default Tab;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Tab as TabType, RemoteAccessInfo } from '../../shared/types';
 import Tab from './Tab';
 import HamburgerMenu from './HamburgerMenu';
@@ -42,6 +42,8 @@ export default function TabBar({
   const dragTabId = useRef<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const tabsRef = useRef(tabs);
+  tabsRef.current = tabs;
 
   useEffect(() => {
     if (!showNewTabMenu) return;
@@ -54,6 +56,43 @@ export default function TabBar({
     return () => document.removeEventListener('mousedown', handler);
   }, [showNewTabMenu]);
 
+  const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
+    dragTabId.current = tabId;
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+    document.body.classList.add('tab-dragging');
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, tabId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragTabId.current && dragTabId.current !== tabId) {
+      setDragOverTabId(tabId);
+    }
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, tabId: string) => {
+    e.preventDefault();
+    setDragOverTabId(null);
+    const fromId = dragTabId.current;
+    if (!fromId || fromId === tabId) return;
+    const currentTabs = tabsRef.current;
+    const fromIdx = currentTabs.findIndex((t) => t.id === fromId);
+    const toIdx = currentTabs.findIndex((t) => t.id === tabId);
+    if (fromIdx < 0 || toIdx < 0) return;
+    const reordered = [...currentTabs];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    onReorderTabs(reordered);
+  }, [onReorderTabs]);
+
+  const handleDragEnd = useCallback(() => {
+    dragTabId.current = null;
+    setDragOverTabId(null);
+    setIsDragging(false);
+    document.body.classList.remove('tab-dragging');
+  }, []);
+
   return (
     <div className={`tab-bar${isDragging ? ' tab-bar-dragging' : ''}`}>
       {tabs.map((tab, index) => (
@@ -62,43 +101,15 @@ export default function TabBar({
           tab={tab}
           index={index}
           isActive={tab.id === activeTabId}
-          onClick={() => onSelectTab(tab.id)}
-          onClose={() => onCloseTab(tab.id)}
-          onRename={(name) => onRenameTab(tab.id, name)}
-          onOpenShell={(shellType) => onNewShellTab(shellType, tab.id)}
+          onSelect={onSelectTab}
+          onClose={onCloseTab}
+          onRename={onRenameTab}
+          onOpenShell={onNewShellTab}
           isDragOver={dragOverTabId === tab.id}
-          onDragStart={(e) => {
-            dragTabId.current = tab.id;
-            e.dataTransfer.effectAllowed = 'move';
-            setIsDragging(true);
-            document.body.classList.add('tab-dragging');
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            if (dragTabId.current && dragTabId.current !== tab.id) {
-              setDragOverTabId(tab.id);
-            }
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOverTabId(null);
-            const fromId = dragTabId.current;
-            if (!fromId || fromId === tab.id) return;
-            const fromIdx = tabs.findIndex((t) => t.id === fromId);
-            const toIdx = tabs.findIndex((t) => t.id === tab.id);
-            if (fromIdx < 0 || toIdx < 0) return;
-            const reordered = [...tabs];
-            const [moved] = reordered.splice(fromIdx, 1);
-            reordered.splice(toIdx, 0, moved);
-            onReorderTabs(reordered);
-          }}
-          onDragEnd={() => {
-            dragTabId.current = null;
-            setDragOverTabId(null);
-            setIsDragging(false);
-            document.body.classList.remove('tab-dragging');
-          }}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          onDragEnd={handleDragEnd}
         />
       ))}
       <div className="new-tab-menu" ref={menuRef}>
