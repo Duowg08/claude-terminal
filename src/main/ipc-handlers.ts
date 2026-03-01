@@ -136,6 +136,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
     }
 
     const args: string[] = [...(PERMISSION_FLAGS[state.permissionMode] ?? [])];
+    if (worktreeName) {
+      args.push('-w', worktreeName);
+    }
     if (resumeSessionId) {
       args.push('--resume', resumeSessionId);
       log.info('[tab:create] resuming session', resumeSessionId, 'in cwd:', cwd);
@@ -147,7 +150,8 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
       CLAUDE_TERMINAL_TMPDIR: os.tmpdir(),
     };
 
-    const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
+    const spawnCwd = worktreeName ? state.workspaceDir : cwd;
+    const proc = ptyManager.spawn(tab.id, spawnCwd, args, extraEnv);
     tab.pid = proc.pid;
 
     await settings.addRecentDir(state.workspaceDir);
@@ -236,7 +240,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
           state.hookInstaller.install(cwd);
         }
 
-        const args: string[] = [...(PERMISSION_FLAGS[state.permissionMode] ?? [])];
+        const args: string[] = [...(PERMISSION_FLAGS[state.permissionMode] ?? []), '-w', worktreeName];
 
         const extraEnv: Record<string, string> = {
           CLAUDE_TERMINAL_TAB_ID: tab.id,
@@ -244,7 +248,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
           CLAUDE_TERMINAL_TMPDIR: os.tmpdir(),
         };
 
-        const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
+        const proc = ptyManager.spawn(tab.id, state.workspaceDir!, args, extraEnv);
         tab.pid = proc.pid;
 
         await settings.addRecentDir(state.workspaceDir!);
