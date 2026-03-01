@@ -19,7 +19,18 @@
     "release:minor": "dotenv -- release-it minor",
     "release:major": "dotenv -- release-it major"
   },
-  "keywords": [],
+  "keywords": [
+    "electron",
+    "terminal",
+    "claude",
+    "claude-code",
+    "ai",
+    "developer-tools",
+    "xterm",
+    "git-worktree",
+    "tabs",
+    "session-management"
+  ],
   "author": {
     "name": "Yaron Guan Golan",
     "email": "yg@lifemapsc.com"
