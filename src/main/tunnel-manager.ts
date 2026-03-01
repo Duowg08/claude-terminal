@@ -1,11 +1,11 @@
 import fs from 'node:fs';
 import https from 'node:https';
 import path from 'node:path';
+import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { app } from 'electron';
 import { log } from './logger';
 
-// Types re-declared here to avoid import issues with cloudflared's .d.ts
 interface CloudflaredConnection {
   id: string;
   ip: string;
@@ -21,20 +21,29 @@ export interface TunnelManagerEvents {
   installing: (percent: number) => void;
 }
 
+/** Regex to extract the quick-tunnel URL from cloudflared stderr. */
+const TUNNEL_URL_RE = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/i;
+
+/** Regex to detect a connector connection line from cloudflared stderr. */
+const CONNECTED_RE = /Connection ([a-f0-9-]+) registered connectorID=([a-f0-9-]+) location=(\w+)(?: ip=(\S+))?/i;
+
 /**
  * Manages a Cloudflare Quick Tunnel lifecycle.
  *
- * Wraps the `cloudflared` npm package to create an ephemeral tunnel
+ * Spawns the `cloudflared` binary directly to create an ephemeral tunnel
  * that proxies external HTTPS traffic to a local port.
+ * Uses the `cloudflared` npm package only for binary installation.
  */
 export class TunnelManager extends EventEmitter {
   private static MAX_RETRIES = 5;
   private static RETRY_DELAY_MS = 2000;
+  private static STARTUP_TIMEOUT_MS = 30_000;
 
   private _url: string | null = null;
   private _active = false;
   private _stopped = false;
-  private tunnel: ReturnType<typeof import('cloudflared')['Tunnel']['quick']> | null = null;
+  private child: ChildProcess | null = null;
+  private startupTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Current tunnel URL, or null if not connected. */
   get url(): string | null {
@@ -51,21 +60,18 @@ export class TunnelManager extends EventEmitter {
    * Installs the cloudflared binary automatically if it is missing.
    */
   async start(localPort: number): Promise<void> {
-    if (this.tunnel) {
+    if (this.child) {
       log.warn('[tunnel] already running — stop first');
       return;
     }
 
     this._stopped = false;
 
-    // The cloudflared package is CJS; import it normally.
-    const { RELEASE_BASE, CLOUDFLARED_VERSION, use, Tunnel } = await import('cloudflared');
+    // The cloudflared package is CJS; import it only for installation metadata.
+    const { RELEASE_BASE, CLOUDFLARED_VERSION } = await import('cloudflared');
 
-    // The default bin path resolves inside app.asar (read-only) in packaged
-    // builds, so we always use a writable location under userData.
     const binName = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
     const binPath = path.join(app.getPath('userData'), 'bin', binName);
-    use(binPath);
 
     // Auto-install the binary if it doesn't exist yet.
     if (!fs.existsSync(binPath)) {
@@ -82,62 +88,86 @@ export class TunnelManager extends EventEmitter {
       }
     }
 
-    this.spawnTunnel(Tunnel, localPort, 0);
+    this.spawnTunnel(binPath, localPort, 0);
   }
 
   /**
-   * Spawn the cloudflared process, retrying automatically if it exits before
-   * establishing the tunnel (e.g. "invalid UUID length: 0").
+   * Spawn the cloudflared process directly, parsing the tunnel URL from
+   * stderr. Retries automatically if it exits before establishing.
    */
-  private spawnTunnel(
-    Tunnel: typeof import('cloudflared')['Tunnel'],
-    localPort: number,
-    attempt: number,
-  ): void {
+  private spawnTunnel(binPath: string, localPort: number, attempt: number): void {
     if (this._stopped) return;
 
     log.info(`[tunnel] starting quick tunnel → localhost:${localPort} (attempt ${attempt + 1}/${TunnelManager.MAX_RETRIES})`);
 
-    const t = Tunnel.quick(`http://localhost:${localPort}`);
-    this.tunnel = t;
+    const child = spawn(binPath, ['tunnel', '--url', `http://localhost:${localPort}`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    this.child = child;
 
-    // Collect stderr so we can report a meaningful error on crash.
     let stderrBuf = '';
-    t.on('stderr', (data: string) => {
-      stderrBuf += data;
-      log.info(`[tunnel] ${data.trimEnd()}`);
-    });
 
-    t.on('url', (url: string) => {
-      this._url = url;
-      this._active = true;
-      log.info(`[tunnel] url: ${url}`);
-      this.emit('url', url);
-    });
+    // Timeout: if we don't get a URL within 30s, kill and retry.
+    this.startupTimer = setTimeout(() => {
+      if (!this._active && !this._stopped) {
+        log.warn('[tunnel] startup timed out');
+        child.kill();
+      }
+    }, TunnelManager.STARTUP_TIMEOUT_MS);
 
-    t.on('connected', (conn: CloudflaredConnection) => {
-      log.info(`[tunnel] connected via ${conn.location} (${conn.ip})`);
-      this.emit('connected', conn);
-    });
+    const onData = (data: Buffer) => {
+      const text = data.toString();
+      stderrBuf += text;
+      log.info(`[tunnel] ${text.trimEnd()}`);
 
-    t.on('error', (err: Error) => {
-      log.error('[tunnel] error:', err.message);
+      // Look for the trycloudflare.com URL
+      if (!this._active) {
+        const urlMatch = stderrBuf.match(TUNNEL_URL_RE);
+        if (urlMatch) {
+          this.clearStartupTimer();
+          this._url = urlMatch[0];
+          this._active = true;
+          stderrBuf = ''; // no longer needed — prevent unbounded growth
+          log.info(`[tunnel] url: ${this._url}`);
+          this.emit('url', this._url);
+        }
+      }
+
+      // Detect connection events
+      const connMatch = text.match(CONNECTED_RE);
+      if (connMatch) {
+        this.emit('connected', {
+          id: connMatch[1],
+          ip: connMatch[4] || connMatch[2],
+          location: connMatch[3],
+        });
+      }
+    };
+
+    child.stderr?.on('data', onData);
+    child.stdout?.on('data', onData);
+
+    child.on('error', (err: Error) => {
+      this.clearStartupTimer();
+      log.error('[tunnel] process error:', err.message);
       this.emit('error', err);
     });
 
-    t.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+    child.on('exit', (code: number | null, signal: string | null) => {
+      this.clearStartupTimer();
       log.info(`[tunnel] exited code=${code} signal=${signal}`);
       const wasActive = this._active;
       this._url = null;
       this._active = false;
-      this.tunnel = null;
+      this.child = null;
 
       // If it crashed before establishing the tunnel, retry automatically.
       if (code !== 0 && !wasActive && !this._stopped) {
         const nextAttempt = attempt + 1;
         if (nextAttempt < TunnelManager.MAX_RETRIES) {
           log.warn(`[tunnel] failed before connecting, retrying in ${TunnelManager.RETRY_DELAY_MS}ms...`);
-          setTimeout(() => this.spawnTunnel(Tunnel, localPort, nextAttempt), TunnelManager.RETRY_DELAY_MS);
+          setTimeout(() => this.spawnTunnel(binPath, localPort, nextAttempt), TunnelManager.RETRY_DELAY_MS);
           return;
         }
         // Exhausted retries — surface the error.
@@ -152,15 +182,19 @@ export class TunnelManager extends EventEmitter {
   /** Stop the tunnel and reset state. */
   stop(): void {
     this._stopped = true;
-    if (this.tunnel) {
+    this.clearStartupTimer();
+    if (this.child) {
       log.info('[tunnel] stopping');
-      // cloudflared's .stop() sends SIGINT which is a no-op on Windows.
-      // Kill the child process directly instead.
-      const child = this.tunnel.process;
-      if (child && !child.killed) {
-        child.kill();
+      if (!this.child.killed) {
+        this.child.kill();
       }
-      // State is cleaned up in the 'exit' handler above.
+    }
+  }
+
+  private clearStartupTimer(): void {
+    if (this.startupTimer) {
+      clearTimeout(this.startupTimer);
+      this.startupTimer = null;
     }
   }
 
