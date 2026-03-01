@@ -196,6 +196,11 @@ const { handleHookMessage } = createHookRouter({
 // ---------------------------------------------------------------------------
 // Tunnel event listeners
 // ---------------------------------------------------------------------------
+tunnelManager.on('installing', (percent: number) => {
+  sendToRenderer('remote:updated', {
+    status: 'installing', tunnelUrl: null, token: null, error: null, progress: percent,
+  } satisfies RemoteAccessInfo);
+});
 tunnelManager.on('url', () => {
   sendToRenderer('remote:updated', getRemoteAccessInfo());
 });

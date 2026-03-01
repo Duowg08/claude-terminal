@@ -42,13 +42,15 @@ export const PERMISSION_FLAGS: Record<PermissionMode, string[]> = {
 };
 
 // Remote access
-export type RemoteAccessStatus = 'inactive' | 'connecting' | 'active' | 'error';
+export type RemoteAccessStatus = 'inactive' | 'installing' | 'connecting' | 'active' | 'error';
 
 export interface RemoteAccessInfo {
   status: RemoteAccessStatus;
   tunnelUrl: string | null;
   token: string | null;
   error: string | null;
+  /** Download progress 0–100 (only meaningful when status === 'installing'). */
+  progress?: number;
 }
 
 // --- Repository hooks ---

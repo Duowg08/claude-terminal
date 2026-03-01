@@ -53,7 +53,7 @@ export default function RemoteAccessButton({ remoteInfo, onActivate, onDeactivat
   const btnClass = [
     'remote-access-btn',
     remoteInfo.status === 'active' ? 'remote-active' : '',
-    remoteInfo.status === 'connecting' ? 'remote-connecting' : '',
+    (remoteInfo.status === 'connecting' || remoteInfo.status === 'installing') ? 'remote-connecting' : '',
   ].filter(Boolean).join(' ');
 
   const truncate = (s: string, max: number) =>
@@ -81,6 +81,18 @@ export default function RemoteAccessButton({ remoteInfo, onActivate, onDeactivat
                 Activate
               </button>
             </>
+          )}
+
+          {remoteInfo.status === 'installing' && (
+            <div className="remote-access-desc">
+              <p>Installing cloudflared{remoteInfo.progress != null ? ` (${remoteInfo.progress}%)` : ''}...</p>
+              <div className="remote-access-progress-track">
+                <div
+                  className="remote-access-progress-bar"
+                  style={{ width: `${remoteInfo.progress ?? 0}%` }}
+                />
+              </div>
+            </div>
           )}
 
           {remoteInfo.status === 'connecting' && (

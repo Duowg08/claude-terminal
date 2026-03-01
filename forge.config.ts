@@ -57,7 +57,7 @@ const config: ForgeConfig = {
     ...(process.platform === 'linux' ? { executableName: 'claude-terminal' } : {}),
     icon: './assets/icon',
     asar: {
-      unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*,**/bufferutil/**/*.node,**/utf-8-validate/**/*.node,**/cloudflared/bin/**}',
+      unpack: '{**/node-pty/**/*.node,**/node-pty/**/spawn-helper*,**/node-pty/**/winpty*,**/node-pty/**/conpty*,**/bufferutil/**/*.node,**/utf-8-validate/**/*.node}',
     },
     afterCopy: [
       // The Vite plugin only packages Vite build output, not node_modules.
