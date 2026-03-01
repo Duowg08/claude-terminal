@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.3](https://github.com/Mr8BitHK/claude-terminal/compare/v1.2.2...v1.2.3) (2026-03-01)
+
+### Features
+
+* add two-finger swipe scrollback for mobile remote access ([34c1d6c](https://github.com/Mr8BitHK/claude-terminal/commit/34c1d6c))
+
+### Bug Fixes
+
+* auto-retry cloudflared quick tunnel on transient UUID failures ([7b27408](https://github.com/Mr8BitHK/claude-terminal/commit/7b27408))
+* disable tunnel Activate button with spinner while activating ([d51e4fd](https://github.com/Mr8BitHK/claude-terminal/commit/d51e4fd))
+* use random port for remote tunnel to allow multiple instances ([92fa6a3](https://github.com/Mr8BitHK/claude-terminal/commit/92fa6a3))
+
 ## [1.2.2](https://github.com/Mr8BitHK/claude-terminal/compare/v1.2.1...v1.2.2) (2026-03-01)
 
 ### Bug Fixes
