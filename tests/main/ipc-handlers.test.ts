@@ -237,6 +237,8 @@ describe('registerIpcHandlers', () => {
       deps.state.workspaceDir = '/test';
       const startHandler = handlers.get('session:start')!;
       await startHandler({}, '/test', 'bypassPermissions');
+      // Spy on hookEngine.emit after session:start creates the real HookEngine
+      vi.spyOn(deps.state.hookEngine!, 'emit');
     });
 
     it('returns tab immediately without waiting for worktree creation', async () => {
@@ -298,6 +300,22 @@ describe('registerIpcHandlers', () => {
 
       // Should NOT have spawned Claude
       expect(deps.ptyManager.spawn).not.toHaveBeenCalled();
+    });
+
+    it('emits worktree:created and tab:created hooks after successful setup', async () => {
+      const handler = handlers.get('tab:createWithWorktree')!;
+      await handler({}, 'my-feature');
+
+      await vi.runAllTimersAsync();
+
+      expect(deps.state.hookEngine!.emit).toHaveBeenCalledWith('worktree:created', expect.objectContaining({
+        name: 'my-feature',
+        branch: 'my-feature',
+      }));
+      expect(deps.state.hookEngine!.emit).toHaveBeenCalledWith('tab:created', expect.objectContaining({
+        tabId: 'tab-1',
+        type: 'claude',
+      }));
     });
   });
 

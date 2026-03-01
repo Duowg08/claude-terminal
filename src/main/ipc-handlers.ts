@@ -234,6 +234,12 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
         if (!tabManager.getTab(tab.id)) return;
 
         sendProgress(`${GREEN}✓${RESET} Worktree created\r\n\r\n`);
+
+        // Fire worktree:created hook (matches standalone worktree:create handler)
+        if (state.hookEngine) {
+          state.hookEngine.emit('worktree:created', { contextRoot: cwd, name: worktreeName, path: cwd, branch: worktreeName });
+        }
+
         sendProgress(`${CYAN}❯${RESET} Starting Claude...\r\n`);
 
         if (state.hookInstaller) {
@@ -280,6 +286,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
 
         deps.sendToRenderer('tab:updated', tab);
         deps.persistSessions();
+        if (state.hookEngine) {
+          state.hookEngine.emit('tab:created', { contextRoot: cwd, tabId: tab.id, cwd, type: 'claude' });
+        }
       } catch (err) {
         sendProgress(`\r\n${RED}✗${RESET} Failed to create worktree\r\n`);
         if (err instanceof Error) {
