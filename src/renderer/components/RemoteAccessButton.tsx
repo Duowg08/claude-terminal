@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Cloud } from 'lucide-react';
+import { Cloud, Loader2 } from 'lucide-react';
 import type { RemoteAccessInfo } from '../../shared/types';
 import { useClickOutside } from '../hooks/useClickOutside';
 
@@ -14,9 +14,15 @@ export default function RemoteAccessButton({ remoteInfo, onActivate, onDeactivat
   const menuRef = useRef<HTMLDivElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [activating, setActivating] = useState(false);
 
   const closeMenu = useCallback(() => setOpen(false), []);
   useClickOutside(menuRef, open, closeMenu);
+
+  // Clear activating state once the status progresses
+  useEffect(() => {
+    if (remoteInfo.status !== 'inactive') setActivating(false);
+  }, [remoteInfo.status]);
 
   // Generate QR code when tunnel URL is available and dropdown is open
   useEffect(() => {
@@ -77,8 +83,12 @@ export default function RemoteAccessButton({ remoteInfo, onActivate, onDeactivat
               <p className="remote-access-desc">
                 Share a secure tunnel URL so others can connect to this session from a browser.
               </p>
-              <button className="remote-access-action" onClick={() => { onActivate(); }}>
-                Activate
+              <button
+                className="remote-access-action"
+                disabled={activating}
+                onClick={() => { setActivating(true); onActivate(); }}
+              >
+                {activating ? <><Loader2 size={14} className="spinner" /> Activating...</> : 'Activate'}
               </button>
             </>
           )}

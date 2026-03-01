@@ -245,7 +245,9 @@ body {
   background: #007acc; border: none; color: #fff;
   border-radius: 4px; font-size: 13px; cursor: pointer;
 }
-.remote-access-action:hover { background: #1a8ad4; }
+.remote-access-action:hover:not(:disabled) { background: #1a8ad4; }
+.remote-access-action:disabled { opacity: 0.6; cursor: not-allowed; }
+.remote-access-action .spinner { animation: spin 1s linear infinite; vertical-align: middle; margin-right: 4px; }
 .remote-access-action.remote-deactivate { background: #3c3c3c; color: #d4d4d4; }
 .remote-access-action.remote-deactivate:hover { background: #4a4a4a; }
 
