@@ -54,7 +54,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
     async (_event, dir: string, mode: PermissionMode) => {
       state.workspaceDir = dir;
       state.permissionMode = mode;
-      settings.setPermissionMode(mode);
+      await settings.setPermissionMode(mode);
       state.worktreeManager = new WorktreeManager(dir);
       // In dev, __dirname is .vite/build/ — go up to project root.
       // In production, hooks are copied to resources/hooks/ by forge config.
@@ -75,14 +75,14 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
       gitHeadWatcher?.close();
       gitHeadWatcher = null;
       let lastKnownBranch = '';
-      try { lastKnownBranch = state.worktreeManager!.getCurrentBranch(); } catch {}
+      try { lastKnownBranch = await state.worktreeManager!.getCurrentBranch(); } catch {}
       const gitHeadPath = path.join(dir, '.git', 'HEAD');
       if (fs.existsSync(gitHeadPath)) {
         gitHeadWatcher = fs.watch(gitHeadPath, () => {
           if (gitHeadDebounceTimer) clearTimeout(gitHeadDebounceTimer);
-          gitHeadDebounceTimer = setTimeout(() => {
+          gitHeadDebounceTimer = setTimeout(async () => {
             try {
-              const branch = state.worktreeManager?.getCurrentBranch() ?? null;
+              const branch = await state.worktreeManager?.getCurrentBranch() ?? null;
               deps.sendToRenderer('git:branchChanged', branch);
               if (branch && state.hookEngine) {
                 state.hookEngine.emit('branch:changed', { contextRoot: dir, from: lastKnownBranch, to: branch });
@@ -101,7 +101,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
   );
 
   ipcMain.handle('session:getSavedTabs', async (_event, dir: string) => {
-    const saved = settings.getSessions(dir);
+    const saved = await settings.getSessions(dir);
     // Filter out worktree tabs whose directories no longer exist
     return saved.filter(tab => {
       if (!tab.worktree) return true;
@@ -149,7 +149,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
     const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
     tab.pid = proc.pid;
 
-    settings.addRecentDir(state.workspaceDir);
+    await settings.addRecentDir(state.workspaceDir);
 
     flowControl.set(tab.id, { paused: false, buffer: [] });
 
@@ -205,7 +205,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
     };
 
     // 2. Fire off async worktree creation (don't block the IPC return)
-    const baseBranch = state.worktreeManager.getCurrentBranch();
+    const baseBranch = await state.worktreeManager.getCurrentBranch();
 
     const doSetup = async () => {
       // Guard: tab may have been closed during the setTimeout delay
@@ -241,7 +241,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
         const proc = ptyManager.spawn(tab.id, cwd, args, extraEnv);
         tab.pid = proc.pid;
 
-        settings.addRecentDir(state.workspaceDir!);
+        await settings.addRecentDir(state.workspaceDir!);
 
         flowControl.set(tab.id, { paused: false, buffer: [] });
 
@@ -354,7 +354,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
       const tab = tabManager.getTab(tabId);
       if (tab?.worktree && state.worktreeManager) {
         try {
-          state.worktreeManager.remove(tab.cwd);
+          await state.worktreeManager.remove(tab.cwd);
         } catch {
           // worktree removal is best-effort
         }
@@ -401,7 +401,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
   // ---- Worktree ----
   ipcMain.handle('worktree:create', async (_event, name: string) => {
     if (!state.worktreeManager) throw new Error('Session not started');
-    const worktreePath = state.worktreeManager.create(name);
+    const worktreePath = await state.worktreeManager.create(name);
     // Fire repo hooks (fire-and-forget)
     // The worktree branch is named after `name` (see WorktreeManager.create)
     if (state.hookEngine) {
@@ -422,7 +422,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
 
   ipcMain.handle('worktree:remove', async (_event, worktreePath: string) => {
     if (!state.worktreeManager) throw new Error('Session not started');
-    state.worktreeManager.remove(worktreePath);
+    await state.worktreeManager.remove(worktreePath);
     if (state.hookEngine) {
       state.hookEngine.emit('worktree:removed', { contextRoot: state.workspaceDir!, name: path.basename(worktreePath), path: worktreePath });
     }
@@ -439,7 +439,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
   });
 
   ipcMain.handle('settings:removeRecentDir', async (_event, dir: string) => {
-    settings.removeRecentDir(dir);
+    await settings.removeRecentDir(dir);
   });
 
   ipcMain.handle('settings:permissionMode', async () => {
@@ -454,7 +454,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
 
   ipcMain.handle('hookConfig:save', async (_event, config: RepoHookConfig) => {
     if (!state.hookConfigStore) throw new Error('Session not started');
-    state.hookConfigStore.save(config);
+    await state.hookConfigStore.save(config);
   });
 
   // ---- Dialog ----

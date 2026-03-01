@@ -1,4 +1,5 @@
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
 import { app } from 'electron';
 import { PermissionMode, SavedTab } from '@shared/types';
@@ -24,10 +25,11 @@ export class SettingsStore {
 
   constructor(filePath?: string) {
     this.filePath = filePath ?? path.join(app.getPath('userData'), 'claude-terminal-settings.json');
-    this.data = this.load();
+    // Sync load at startup is acceptable (one-time cost)
+    this.data = this.loadSync();
   }
 
-  private load(): StoreData {
+  private loadSync(): StoreData {
     try {
       const raw = fs.readFileSync(this.filePath, 'utf-8');
       return { ...DEFAULTS, ...JSON.parse(raw) };
@@ -36,35 +38,35 @@ export class SettingsStore {
     }
   }
 
-  private save(): void {
+  private async save(): Promise<void> {
     const dir = path.dirname(this.filePath);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
+    await fsp.mkdir(dir, { recursive: true });
+    await fsp.writeFile(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
   }
 
   getRecentDirs(): string[] {
     return this.data.recentDirs;
   }
 
-  addRecentDir(dir: string): void {
+  async addRecentDir(dir: string): Promise<void> {
     this.data.recentDirs = this.data.recentDirs.filter(d => d !== dir);
     this.data.recentDirs.unshift(dir);
     this.data.recentDirs = this.data.recentDirs.slice(0, MAX_RECENT_DIRS);
-    this.save();
+    await this.save();
   }
 
-  removeRecentDir(dir: string): void {
+  async removeRecentDir(dir: string): Promise<void> {
     this.data.recentDirs = this.data.recentDirs.filter(d => d !== dir);
-    this.save();
+    await this.save();
   }
 
   getPermissionMode(): PermissionMode {
     return this.data.permissionMode;
   }
 
-  setPermissionMode(mode: PermissionMode): void {
+  async setPermissionMode(mode: PermissionMode): Promise<void> {
     this.data.permissionMode = mode;
-    this.save();
+    await this.save();
   }
 
   // --- Per-directory session persistence (stored in <dir>/.claude-terminal/sessions.json) ---
@@ -73,10 +75,10 @@ export class SettingsStore {
     return path.join(dir, SESSIONS_DIR, SESSIONS_FILE);
   }
 
-  getSessions(dir: string): SavedTab[] {
+  async getSessions(dir: string): Promise<SavedTab[]> {
     const filePath = this.sessionsPath(dir);
     try {
-      const raw = fs.readFileSync(filePath, 'utf-8');
+      const raw = await fsp.readFile(filePath, 'utf-8');
       const tabs = JSON.parse(raw) as SavedTab[];
       log.info('[sessions] loaded', tabs.length, 'saved tabs from', filePath);
       return tabs;
@@ -90,12 +92,12 @@ export class SettingsStore {
     }
   }
 
-  saveSessions(dir: string, tabs: SavedTab[]): void {
+  async saveSessions(dir: string, tabs: SavedTab[]): Promise<void> {
     const filePath = this.sessionsPath(dir);
     try {
       const sessDir = path.join(dir, SESSIONS_DIR);
-      fs.mkdirSync(sessDir, { recursive: true });
-      fs.writeFileSync(filePath, JSON.stringify(tabs, null, 2), 'utf-8');
+      await fsp.mkdir(sessDir, { recursive: true });
+      await fsp.writeFile(filePath, JSON.stringify(tabs, null, 2), 'utf-8');
       log.debug('[sessions] persisted', tabs.length, 'tabs to', filePath);
     } catch (err) {
       log.error('[sessions] failed to save sessions to', filePath, String(err));

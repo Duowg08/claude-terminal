@@ -88,7 +88,7 @@ function sendToRenderer(channel: string, ...args: unknown[]) {
   }
 }
 
-function persistSessions() {
+async function persistSessions() {
   if (!state.workspaceDir) return;
   const allTabs = tabManager.getAllTabs();
   const savedTabs = allTabs
@@ -99,7 +99,7 @@ function persistSessions() {
       worktree: t.worktree,
       sessionId: t.sessionId!,
     }));
-  settings.saveSessions(state.workspaceDir, savedTabs);
+  await settings.saveSessions(state.workspaceDir, savedTabs);
 }
 
 // ---------------------------------------------------------------------------

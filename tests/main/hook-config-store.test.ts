@@ -23,12 +23,12 @@ describe('HookConfigStore', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('returns empty hooks when file does not exist', () => {
-    const config = store.load();
+  it('returns empty hooks when file does not exist', async () => {
+    const config = await store.load();
     expect(config.hooks).toEqual([]);
   });
 
-  it('loads hooks from file', () => {
+  it('loads hooks from file', async () => {
     const dir = path.join(tmpDir, '.claude-terminal');
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'hooks.json'), JSON.stringify({
@@ -38,13 +38,13 @@ describe('HookConfigStore', () => {
         enabled: true,
       }],
     }));
-    const config = store.load();
+    const config = await store.load();
     expect(config.hooks).toHaveLength(1);
     expect(config.hooks[0].id).toBe('test');
   });
 
-  it('saves hooks to file', () => {
-    store.save({
+  it('saves hooks to file', async () => {
+    await store.save({
       hooks: [{
         id: 'a', name: 'A', event: 'tab:created',
         commands: [{ path: './src', command: 'npm test' }],
@@ -57,23 +57,23 @@ describe('HookConfigStore', () => {
     expect(raw.hooks[0].id).toBe('a');
   });
 
-  it('returns empty hooks for invalid JSON', () => {
+  it('returns empty hooks for invalid JSON', async () => {
     const dir = path.join(tmpDir, '.claude-terminal');
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'hooks.json'), 'not json');
-    const config = store.load();
+    const config = await store.load();
     expect(config.hooks).toEqual([]);
   });
 
-  it('getHooksForEvent returns only matching enabled hooks', () => {
-    store.save({
+  it('getHooksForEvent returns only matching enabled hooks', async () => {
+    await store.save({
       hooks: [
         { id: 'a', name: 'A', event: 'worktree:created', commands: [{ path: '.', command: 'echo a' }], enabled: true },
         { id: 'b', name: 'B', event: 'worktree:created', commands: [{ path: '.', command: 'echo b' }], enabled: false },
         { id: 'c', name: 'C', event: 'tab:created', commands: [{ path: '.', command: 'echo c' }], enabled: true },
       ],
     });
-    const matching = store.getHooksForEvent('worktree:created');
+    const matching = await store.getHooksForEvent('worktree:created');
     expect(matching).toHaveLength(1);
     expect(matching[0].id).toBe('a');
   });

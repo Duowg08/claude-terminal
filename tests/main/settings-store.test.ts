@@ -27,23 +27,23 @@ describe('SettingsStore', () => {
     expect(store.getRecentDirs()).toEqual([]);
   });
 
-  it('adds a recent directory', () => {
-    store.addRecentDir('D:\\dev\\MyApp');
+  it('adds a recent directory', async () => {
+    await store.addRecentDir('D:\\dev\\MyApp');
     expect(store.getRecentDirs()).toContain('D:\\dev\\MyApp');
   });
 
-  it('moves duplicate to front', () => {
-    store.addRecentDir('D:\\dev\\A');
-    store.addRecentDir('D:\\dev\\B');
-    store.addRecentDir('D:\\dev\\A');
+  it('moves duplicate to front', async () => {
+    await store.addRecentDir('D:\\dev\\A');
+    await store.addRecentDir('D:\\dev\\B');
+    await store.addRecentDir('D:\\dev\\A');
     const dirs = store.getRecentDirs();
     expect(dirs[0]).toBe('D:\\dev\\A');
     expect(dirs).toHaveLength(2);
   });
 
-  it('limits to 10 recent dirs', () => {
+  it('limits to 10 recent dirs', async () => {
     for (let i = 0; i < 15; i++) {
-      store.addRecentDir(`D:\\dev\\project${i}`);
+      await store.addRecentDir(`D:\\dev\\project${i}`);
     }
     expect(store.getRecentDirs()).toHaveLength(10);
   });
@@ -52,13 +52,13 @@ describe('SettingsStore', () => {
     expect(store.getPermissionMode()).toBe('bypassPermissions');
   });
 
-  it('saves and retrieves permission mode', () => {
-    store.setPermissionMode('plan');
+  it('saves and retrieves permission mode', async () => {
+    await store.setPermissionMode('plan');
     expect(store.getPermissionMode()).toBe('plan');
   });
 
-  it('persists to disk and reloads', () => {
-    store.addRecentDir('D:\\dev\\Persist');
+  it('persists to disk and reloads', async () => {
+    await store.addRecentDir('D:\\dev\\Persist');
     const store2 = new SettingsStore(tmpFile);
     expect(store2.getRecentDirs()).toContain('D:\\dev\\Persist');
   });
@@ -77,40 +77,40 @@ describe('SettingsStore sessions', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('getSessions returns empty array when no file exists', () => {
-    const result = store.getSessions(tmpDir);
+  it('getSessions returns empty array when no file exists', async () => {
+    const result = await store.getSessions(tmpDir);
     expect(result).toEqual([]);
   });
 
-  it('saveSessions writes and getSessions reads back', () => {
+  it('saveSessions writes and getSessions reads back', async () => {
     const tabs = [{ name: 'Tab 1', cwd: '/tmp', worktree: null, sessionId: 'abc-123' }];
-    store.saveSessions(tmpDir, tabs);
-    const result = store.getSessions(tmpDir);
+    await store.saveSessions(tmpDir, tabs);
+    const result = await store.getSessions(tmpDir);
     expect(result).toEqual(tabs);
   });
 
-  it('saveSessions overwrites previous sessions', () => {
+  it('saveSessions overwrites previous sessions', async () => {
     const tabs1 = [{ name: 'Tab 1', cwd: '/tmp', worktree: null, sessionId: 'abc' }];
     const tabs2 = [{ name: 'Tab 2', cwd: '/tmp', worktree: null, sessionId: 'def' }];
-    store.saveSessions(tmpDir, tabs1);
-    store.saveSessions(tmpDir, tabs2);
-    const result = store.getSessions(tmpDir);
+    await store.saveSessions(tmpDir, tabs1);
+    await store.saveSessions(tmpDir, tabs2);
+    const result = await store.getSessions(tmpDir);
     expect(result).toEqual(tabs2);
   });
 
-  it('getSessions returns empty array on corrupted JSON', () => {
+  it('getSessions returns empty array on corrupted JSON', async () => {
     const sessDir = path.join(tmpDir, '.claude-terminal');
     fs.mkdirSync(sessDir, { recursive: true });
     fs.writeFileSync(path.join(sessDir, 'sessions.json'), '{corrupt', 'utf-8');
-    const result = store.getSessions(tmpDir);
+    const result = await store.getSessions(tmpDir);
     expect(result).toEqual([]);
   });
 
-  it('saveSessions does not throw on bad directory', () => {
+  it('saveSessions does not throw on bad directory', async () => {
     // Create a file where saveSessions expects a directory — forces ENOTDIR
     const blockingFile = path.join(tmpDir, 'blocker');
     fs.writeFileSync(blockingFile, '');
     const badDir = path.join(blockingFile, 'sessions');
-    expect(() => store.saveSessions(badDir, [{ name: 'x', cwd: '/', worktree: null, sessionId: 'z' }])).not.toThrow();
+    await expect(store.saveSessions(badDir, [{ name: 'x', cwd: '/', worktree: null, sessionId: 'z' }])).resolves.not.toThrow();
   });
 });

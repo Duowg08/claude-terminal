@@ -24,7 +24,7 @@ export class HookEngine {
   }
 
   async emit(event: HookEvent, context: HookContext): Promise<void> {
-    const hooks = this.store.getHooksForEvent(event);
+    const hooks = await this.store.getHooksForEvent(event);
     if (hooks.length === 0) return;
 
     log.info('[hook-engine] firing', event, '— matched', hooks.length, 'hook(s)');

@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import path from 'path';
-import { execSync, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 
 vi.mock('child_process', () => ({
-  execSync: vi.fn(),
+  execFile: vi.fn(),
   spawn: vi.fn(),
 }));
 
@@ -12,64 +12,76 @@ import { WorktreeManager } from '@main/worktree-manager';
 
 describe('WorktreeManager', () => {
   let manager: WorktreeManager;
-  const mockExecSync = vi.mocked(execSync);
+  const mockExecFile = vi.mocked(execFile);
+
+  function mockExecFileResult(stdout: string) {
+    mockExecFile.mockImplementationOnce((_cmd: any, _args: any, _opts: any, cb: any) => {
+      cb(null, stdout, '');
+      return {} as any;
+    });
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
     manager = new WorktreeManager('D:\\dev\\MyApp');
   });
 
-  it('gets current branch name', () => {
-    mockExecSync.mockReturnValue(Buffer.from('main\n'));
-    expect(manager.getCurrentBranch()).toBe('main');
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git rev-parse --abbrev-ref HEAD',
+  it('gets current branch name', async () => {
+    mockExecFileResult('main\n');
+    expect(await manager.getCurrentBranch()).toBe('main');
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'git',
+      ['rev-parse', '--abbrev-ref', 'HEAD'],
       expect.objectContaining({ cwd: 'D:\\dev\\MyApp' }),
+      expect.any(Function),
     );
   });
 
-  it('creates a worktree from current branch', () => {
-    mockExecSync
-      .mockReturnValueOnce(Buffer.from('main\n'))  // getCurrentBranch
-      .mockReturnValueOnce(Buffer.from(''));         // git worktree add
-    const result = manager.create('feature/auth');
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('git worktree add'),
+  it('creates a worktree from current branch', async () => {
+    mockExecFileResult('main\n'); // getCurrentBranch
+    mockExecFileResult('');        // git worktree add
+    const result = await manager.create('feature/auth');
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'git',
+      expect.arrayContaining(['worktree', 'add']),
       expect.anything(),
+      expect.any(Function),
     );
     expect(result).toContain(path.join('feature', 'auth'));
   });
 
-  it('checkStatus returns clean for worktree with no changes', () => {
-    mockExecSync.mockReturnValue(Buffer.from(''));
-    const status = manager.checkStatus('D:\\dev\\MyApp\\.claude\\worktrees\\feat');
+  it('checkStatus returns clean for worktree with no changes', async () => {
+    mockExecFileResult('');
+    const status = await manager.checkStatus('D:\\dev\\MyApp\\.claude\\worktrees\\feat');
     expect(status.clean).toBe(true);
     expect(status.changesCount).toBe(0);
   });
 
-  it('checkStatus returns dirty for worktree with changes', () => {
-    mockExecSync.mockReturnValue(Buffer.from('M  src/index.ts\n?? new-file.ts\n'));
-    const status = manager.checkStatus('D:\\dev\\MyApp\\.claude\\worktrees\\feat');
+  it('checkStatus returns dirty for worktree with changes', async () => {
+    mockExecFileResult('M  src/index.ts\n?? new-file.ts\n');
+    const status = await manager.checkStatus('D:\\dev\\MyApp\\.claude\\worktrees\\feat');
     expect(status.clean).toBe(false);
     expect(status.changesCount).toBe(2);
   });
 
-  it('removes a worktree', () => {
-    mockExecSync.mockReturnValue(Buffer.from(''));
-    manager.remove('feature/auth');
-    expect(mockExecSync).toHaveBeenCalledWith(
-      expect.stringContaining('git worktree remove'),
+  it('removes a worktree', async () => {
+    mockExecFileResult(''); // worktree remove
+    mockExecFileResult(''); // branch -D
+    await manager.remove('D:\\dev\\MyApp\\.claude\\worktrees\\feature-auth');
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'git',
+      expect.arrayContaining(['worktree', 'remove']),
       expect.anything(),
+      expect.any(Function),
     );
   });
 
-  it('lists worktree details (skipping main worktree)', () => {
-    mockExecSync
-      .mockReturnValueOnce(Buffer.from(
-        'D:/dev/MyApp  abc1234 [main]\nD:/dev/MyApp/.claude/worktrees/feat  def5678 [feat]\n'
-      ))  // list() via listDetails()
-      .mockReturnValueOnce(Buffer.from('M  src/index.ts\n'));  // git status --porcelain for feat
-    const details = manager.listDetails();
+  it('lists worktree details (skipping main worktree)', async () => {
+    mockExecFileResult(
+      'D:/dev/MyApp  abc1234 [main]\nD:/dev/MyApp/.claude/worktrees/feat  def5678 [feat]\n'
+    );  // list() via listDetails()
+    mockExecFileResult('M  src/index.ts\n');  // git status --porcelain for feat
+    const details = await manager.listDetails();
     expect(details).toHaveLength(1);
     expect(details[0].name).toBe('feat');
     expect(details[0].clean).toBe(false);
@@ -80,7 +92,7 @@ describe('WorktreeManager', () => {
     const mockSpawn = vi.mocked(spawn);
 
     it('resolves with worktree path on success', async () => {
-      mockExecSync.mockReturnValueOnce(Buffer.from('main\n')); // getCurrentBranch
+      mockExecFileResult('main\n'); // getCurrentBranch
 
       const mockProc = {
         stdout: { on: vi.fn() },
@@ -91,6 +103,11 @@ describe('WorktreeManager', () => {
 
       const onOutput = vi.fn();
       const promise = manager.createAsync('my-feature', onOutput);
+
+      // Allow microtask (getCurrentBranch await) to resolve before accessing spawn mock
+      await vi.waitFor(() => {
+        expect(mockSpawn).toHaveBeenCalled();
+      });
 
       // Simulate stdout output
       const stdoutCb = mockProc.stdout.on.mock.calls[0][1];
@@ -111,7 +128,7 @@ describe('WorktreeManager', () => {
     });
 
     it('rejects when git exits with non-zero code', async () => {
-      mockExecSync.mockReturnValueOnce(Buffer.from('main\n'));
+      mockExecFileResult('main\n');
 
       const mockProc = {
         stdout: { on: vi.fn() },
@@ -123,6 +140,10 @@ describe('WorktreeManager', () => {
       const onOutput = vi.fn();
       const promise = manager.createAsync('bad-name', onOutput);
 
+      await vi.waitFor(() => {
+        expect(mockSpawn).toHaveBeenCalled();
+      });
+
       const closeCb = mockProc.on.mock.calls.find((c: any) => c[0] === 'close')![1];
       closeCb(128);
 
@@ -130,7 +151,7 @@ describe('WorktreeManager', () => {
     });
 
     it('rejects when spawn fails', async () => {
-      mockExecSync.mockReturnValueOnce(Buffer.from('main\n'));
+      mockExecFileResult('main\n');
 
       const mockProc = {
         stdout: { on: vi.fn() },
@@ -141,6 +162,10 @@ describe('WorktreeManager', () => {
 
       const onOutput = vi.fn();
       const promise = manager.createAsync('feat', onOutput);
+
+      await vi.waitFor(() => {
+        expect(mockSpawn).toHaveBeenCalled();
+      });
 
       const errorCb = mockProc.on.mock.calls.find((c: any) => c[0] === 'error')![1];
       errorCb(new Error('ENOENT'));

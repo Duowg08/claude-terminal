@@ -1,4 +1,5 @@
 import fs from 'fs';
+import fsp from 'fs/promises';
 import path from 'path';
 import type { RepoHookConfig, RepoHook, HookEvent } from '@shared/types';
 import { log } from './logger';
@@ -17,9 +18,9 @@ export class HookConfigStore {
     return path.join(this.rootDir, HOOKS_DIR, HOOKS_FILE);
   }
 
-  load(): RepoHookConfig {
+  async load(): Promise<RepoHookConfig> {
     try {
-      const raw = fs.readFileSync(this.filePath(), 'utf-8');
+      const raw = await fsp.readFile(this.filePath(), 'utf-8');
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.hooks)) {
         return parsed as RepoHookConfig;
@@ -33,19 +34,19 @@ export class HookConfigStore {
     }
   }
 
-  save(config: RepoHookConfig): void {
+  async save(config: RepoHookConfig): Promise<void> {
     const dir = path.join(this.rootDir, HOOKS_DIR);
     try {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(this.filePath(), JSON.stringify(config, null, 2), 'utf-8');
+      await fsp.mkdir(dir, { recursive: true });
+      await fsp.writeFile(this.filePath(), JSON.stringify(config, null, 2), 'utf-8');
       log.debug('[hook-config] saved', config.hooks.length, 'hooks to', this.filePath());
     } catch (err) {
       log.error('[hook-config] failed to save hooks to', this.filePath(), String(err));
     }
   }
 
-  getHooksForEvent(event: HookEvent): RepoHook[] {
-    const config = this.load();
+  async getHooksForEvent(event: HookEvent): Promise<RepoHook[]> {
+    const config = await this.load();
     return config.hooks.filter(h => h.enabled && h.event === event);
   }
 }
