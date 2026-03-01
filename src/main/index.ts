@@ -89,18 +89,27 @@ function sendToRenderer(channel: string, ...args: unknown[]) {
 }
 
 let persistDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let shuttingDown = false;
 
 async function doPersistSessions() {
+  if (shuttingDown) return;
   if (!state.workspaceDir) return;
   const allTabs = tabManager.getAllTabs();
-  const savedTabs = allTabs
-    .filter(t => t.sessionId && t.type === 'claude' && t.status !== 'new')
+  const claudeTabs = allTabs.filter(t => t.type === 'claude');
+  const savedTabs = claudeTabs
+    .filter(t => t.sessionId && t.status !== 'new')
     .map(t => ({
       name: t.name,
       cwd: t.cwd,
       worktree: t.worktree,
       sessionId: t.sessionId!,
     }));
+  // Don't wipe sessions.json while tabs are still initializing (no sessionId yet).
+  // This prevents reload transitions from clearing saved sessions.
+  if (savedTabs.length === 0 && claudeTabs.length > 0) {
+    log.debug('[sessions] skip persist: %d claude tab(s) still initializing', claudeTabs.length);
+    return;
+  }
   await settings.saveSessions(state.workspaceDir, savedTabs);
 }
 
@@ -310,6 +319,7 @@ app.on('ready', async () => {
 app.on('window-all-closed', async () => {
   log.info('[quit] workspaceDir:', state.workspaceDir, 'tabs:', tabManager.getAllTabs().length);
   flushPersistSessions();
+  shuttingDown = true;
 
   for (const tab of tabManager.getAllTabs()) {
     cleanupNamingFlag(tab.id);
