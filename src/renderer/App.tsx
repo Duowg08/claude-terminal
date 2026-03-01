@@ -93,6 +93,7 @@ export default function App() {
   // Auto-start when a CLI directory was provided (skip StartupDialog)
   useEffect(() => {
     let cancelled = false;
+    const createdTabIds: string[] = [];
 
     (async () => {
       const cliDir = await window.claudeTerminal.getCliStartDir();
@@ -110,11 +111,14 @@ export default function App() {
       if (cancelled) return;
 
       // Create all tabs in parallel for faster startup
-      await Promise.allSettled(
+      const results = await Promise.allSettled(
         savedTabs.map(saved =>
           window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name)
         )
       );
+      for (const r of results) {
+        if (r.status === 'fulfilled') createdTabIds.push(r.value.id);
+      }
       if (cancelled) return;
 
       const allTabs = await window.claudeTerminal.getTabs();
@@ -134,7 +138,11 @@ export default function App() {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Clean up any PTY processes spawned before the unmount
+      createdTabIds.forEach(id => window.claudeTerminal.closeTab(id));
+    };
   }, [handleNewTabWithoutWorktree]);
 
   // Listen for tab updates from main process (registered once)
