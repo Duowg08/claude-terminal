@@ -210,6 +210,43 @@ const Terminal = React.memo(function Terminal({ tabId, isVisible, fixedCols, fix
       attachedRef.current = tabId;
     }
 
+    // Two-finger swipe: scroll through terminal scrollback on touch devices.
+    // Single-finger swipe is consumed by browser overflow scrolling (panning the
+    // oversized terminal in remote mode), so we use two fingers for scrollback.
+    let twoFingerLastY: number | null = null;
+    let scrollRemainder = 0;
+    const LINE_PX = 20; // approximate pixels per terminal line
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        twoFingerLastY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        scrollRemainder = 0;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && twoFingerLastY !== null) {
+        e.preventDefault();
+        const currentY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        const rawDelta = twoFingerLastY - currentY + scrollRemainder;
+        const lines = Math.trunc(rawDelta / LINE_PX);
+        if (lines !== 0) {
+          term.scrollLines(lines);
+          scrollRemainder = rawDelta - lines * LINE_PX;
+          twoFingerLastY = currentY;
+        }
+      }
+    };
+
+    const handleTouchEnd = () => {
+      twoFingerLastY = null;
+      scrollRemainder = 0;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+
     // Right-click: copy selection if any, otherwise paste from clipboard
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -249,6 +286,9 @@ const Terminal = React.memo(function Terminal({ tabId, isVisible, fixedCols, fix
       clearTimeout(resizeTimeout);
       resizeObserver?.disconnect();
       container.removeEventListener('contextmenu', handleContextMenu);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
     };
   }, [tabId, isVisible, fixedCols, fixedRows]);
 
