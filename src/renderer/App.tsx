@@ -99,7 +99,6 @@ export default function App() {
   // Auto-start when a CLI directory was provided (skip StartupDialog)
   useEffect(() => {
     let cancelled = false;
-    const createdTabIds: string[] = [];
 
     (async () => {
       const cliDir = await window.claudeTerminal.getCliStartDir();
@@ -113,18 +112,33 @@ export default function App() {
       await window.claudeTerminal.startSession(cliDir, savedMode);
       if (cancelled) return;
 
+      // Check if tabs already exist in the main process (renderer reload)
+      const existingTabs = await window.claudeTerminal.getTabs();
+      if (cancelled) return;
+
+      if (existingTabs.length > 0) {
+        // Renderer reload — reuse existing tabs instead of recreating
+        const activeId = await window.claudeTerminal.getActiveTabId();
+        if (cancelled) return;
+        setTabs(existingTabs);
+        setActiveTabId(activeId);
+        setAppState('running');
+        try {
+          setBranch(await window.claudeTerminal.getCurrentBranch());
+        } catch { /* not a git repo */ }
+        return;
+      }
+
+      // Fresh start — restore from saved sessions
       const savedTabs = await window.claudeTerminal.getSavedTabs(cliDir);
       if (cancelled) return;
 
       // Create all tabs in parallel for faster startup
-      const results = await Promise.allSettled(
+      await Promise.allSettled(
         savedTabs.map(saved =>
           window.claudeTerminal.createTab(saved.worktree, saved.sessionId, saved.name)
         )
       );
-      for (const r of results) {
-        if (r.status === 'fulfilled') createdTabIds.push(r.value.id);
-      }
       if (cancelled) return;
 
       const allTabs = await window.claudeTerminal.getTabs();
@@ -146,8 +160,6 @@ export default function App() {
 
     return () => {
       cancelled = true;
-      // Clean up any PTY processes spawned before the unmount
-      createdTabIds.forEach(id => window.claudeTerminal.closeTab(id));
     };
   }, [handleNewTabWithoutWorktree]);
 
