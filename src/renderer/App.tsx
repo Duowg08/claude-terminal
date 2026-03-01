@@ -31,6 +31,7 @@ export default function App() {
   });
   const [branch, setBranch] = useState<string | null>(null);
   const [showHookManager, setShowHookManager] = useState(false);
+  const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const [worktreeCloseConfirm, setWorktreeCloseConfirm] = useState<{
     tabId: string; worktreeName: string; clean: boolean; changesCount: number;
   } | null>(null);
@@ -283,9 +284,7 @@ export default function App() {
       if (e.key === 'F2') {
         e.preventDefault();
         if (currentActiveId) {
-          window.dispatchEvent(
-            new CustomEvent('tab:startRename', { detail: { tabId: currentActiveId } })
-          );
+          setRenamingTabId(currentActiveId);
         }
         return;
       }
@@ -341,9 +340,11 @@ export default function App() {
       <TabBar
         tabs={tabs}
         activeTabId={activeTabId}
+        renamingTabId={renamingTabId}
         onSelectTab={handleSelectTab}
         onCloseTab={handleCloseTab}
         onRenameTab={handleRenameTab}
+        onRenameHandled={() => setRenamingTabId(null)}
         onNewClaudeTab={handleNewTabWithoutWorktree}
         onNewWorktreeTab={() => setShowWorktreeDialog(true)}
         onNewShellTab={handleNewShellTab}

@@ -8,9 +8,11 @@ import { useClickOutside } from '../hooks/useClickOutside';
 interface TabBarProps {
   tabs: TabType[];
   activeTabId: string | null;
+  renamingTabId: string | null;
   onSelectTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onRenameTab: (tabId: string, name: string) => void;
+  onRenameHandled: () => void;
   onNewClaudeTab: () => void;
   onNewWorktreeTab: () => void;
   onNewShellTab: (shellType: 'powershell' | 'wsl', afterTabId?: string) => void;
@@ -25,9 +27,11 @@ interface TabBarProps {
 export default function TabBar({
   tabs,
   activeTabId,
+  renamingTabId,
   onSelectTab,
   onCloseTab,
   onRenameTab,
+  onRenameHandled,
   onNewClaudeTab,
   onNewWorktreeTab,
   onNewShellTab,
@@ -94,9 +98,11 @@ export default function TabBar({
           tab={tab}
           index={index}
           isActive={tab.id === activeTabId}
+          isRenaming={tab.id === renamingTabId}
           onSelect={onSelectTab}
           onClose={onCloseTab}
           onRename={onRenameTab}
+          onRenameHandled={onRenameHandled}
           onOpenShell={onNewShellTab}
           isDragOver={dragOverTabId === tab.id}
           onDragStart={handleDragStart}

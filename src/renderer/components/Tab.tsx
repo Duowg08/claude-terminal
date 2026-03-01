@@ -9,9 +9,11 @@ interface TabProps {
   tab: TabType;
   index: number;
   isActive: boolean;
+  isRenaming: boolean;
   onSelect: (tabId: string) => void;
   onClose: (tabId: string) => void;
   onRename: (tabId: string, name: string) => void;
+  onRenameHandled: () => void;
   onOpenShell?: (shellType: 'powershell' | 'wsl', afterTabId: string) => void;
   onDragStart: (e: React.DragEvent, tabId: string) => void;
   onDragOver: (e: React.DragEvent, tabId: string) => void;
@@ -20,7 +22,7 @@ interface TabProps {
   isDragOver: boolean;
 }
 
-const Tab = React.memo(function Tab({ tab, index, isActive, onSelect, onClose, onRename, onOpenShell, onDragStart, onDragOver, onDragEnd, onDrop, isDragOver }: TabProps) {
+const Tab = React.memo(function Tab({ tab, index, isActive, isRenaming: isRenamingProp, onSelect, onClose, onRename, onRenameHandled, onOpenShell, onDragStart, onDragOver, onDragEnd, onDrop, isDragOver }: TabProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(tab.name);
   const [showChevron, setShowChevron] = useState(false);
@@ -35,18 +37,14 @@ const Tab = React.memo(function Tab({ tab, index, isActive, onSelect, onClose, o
     }
   }, [isRenaming]);
 
-  // Listen for F2 rename event (dispatched from App shell)
+  // Enter rename mode when triggered via F2 from App
   useEffect(() => {
-    const handler = (e: Event) => {
-      const customEvent = e as CustomEvent<{ tabId: string }>;
-      if (customEvent.detail.tabId === tab.id) {
-        setRenameValue(tab.name);
-        setIsRenaming(true);
-      }
-    };
-    window.addEventListener('tab:startRename', handler);
-    return () => window.removeEventListener('tab:startRename', handler);
-  }, [tab.id, tab.name]);
+    if (isRenamingProp) {
+      setRenameValue(tab.name);
+      setIsRenaming(true);
+      onRenameHandled();
+    }
+  }, [isRenamingProp, tab.name, onRenameHandled]);
 
   const closeChevron = useCallback(() => setShowChevron(false), []);
   useClickOutside(chevronRef, showChevron, closeChevron);

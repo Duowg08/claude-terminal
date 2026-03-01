@@ -227,9 +227,11 @@ function RemoteApp({ initialTabs, initialActiveTabId, initialTermSizes, onDiscon
       <TabBar
         tabs={tabs}
         activeTabId={activeTabId}
+        renamingTabId={null}
         onSelectTab={handleSelectTab}
         onCloseTab={noop}
         onRenameTab={handleRenameTab}
+        onRenameHandled={noop}
         onNewClaudeTab={noop}
         onNewWorktreeTab={noop}
         onNewShellTab={noop}
