@@ -6,6 +6,7 @@ type MessageHandler = (msg: IpcMessage) => void;
 
 export class HookIpcServer {
   private server: net.Server | null = null;
+  private sockets: Set<net.Socket> = new Set();
   private handlers: MessageHandler[] = [];
   private pipePath: string;
 
@@ -16,6 +17,8 @@ export class HookIpcServer {
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.server = net.createServer((socket) => {
+        this.sockets.add(socket);
+        socket.on('close', () => this.sockets.delete(socket));
         let buffer = '';
         socket.on('error', (err) => {
           log.warn('[ipc-socket-error]', err.message);
@@ -46,6 +49,10 @@ export class HookIpcServer {
   }
 
   async stop(): Promise<void> {
+    for (const socket of this.sockets) {
+      socket.destroy();
+    }
+    this.sockets.clear();
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => resolve());
