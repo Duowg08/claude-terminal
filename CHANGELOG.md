@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.4](https://github.com/Mr8BitHK/claude-terminal/compare/v1.2.3...v1.2.4) (2026-03-01)
+
+### Features
+
+* show version number in window title bar ([a3229fa](https://github.com/Mr8BitHK/claude-terminal/commit/a3229fa))
+* wire remote + button to create tabs and worktree tabs ([539ddc3](https://github.com/Mr8BitHK/claude-terminal/commit/539ddc3))
+* forward worktree progress events to remote WS clients ([2d175f5](https://github.com/Mr8BitHK/claude-terminal/commit/2d175f5))
+
+### Bug Fixes
+
+* prevent garbled display and wrong dimensions on remote mobile client ([cb3b8e8](https://github.com/Mr8BitHK/claude-terminal/commit/cb3b8e8))
+* spawn cloudflared binary directly instead of using npm package wrapper ([e55d431](https://github.com/Mr8BitHK/claude-terminal/commit/e55d431))
+* position new-tab dropdown with fixed positioning in remote web client ([71f33b4](https://github.com/Mr8BitHK/claude-terminal/commit/71f33b4))
+* set dark background color to prevent white flash on startup ([159927d](https://github.com/Mr8BitHK/claude-terminal/commit/159927d))
+
 ## [1.2.3](https://github.com/Mr8BitHK/claude-terminal/compare/v1.2.2...v1.2.3) (2026-03-01)
 
 ### Features
