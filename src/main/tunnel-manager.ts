@@ -28,8 +28,12 @@ export interface TunnelManagerEvents {
  * that proxies external HTTPS traffic to a local port.
  */
 export class TunnelManager extends EventEmitter {
+  private static MAX_RETRIES = 5;
+  private static RETRY_DELAY_MS = 2000;
+
   private _url: string | null = null;
   private _active = false;
+  private _stopped = false;
   private tunnel: ReturnType<typeof import('cloudflared')['Tunnel']['quick']> | null = null;
 
   /** Current tunnel URL, or null if not connected. */
@@ -51,6 +55,8 @@ export class TunnelManager extends EventEmitter {
       log.warn('[tunnel] already running — stop first');
       return;
     }
+
+    this._stopped = false;
 
     // The cloudflared package is CJS; import it normally.
     const { RELEASE_BASE, CLOUDFLARED_VERSION, use, Tunnel } = await import('cloudflared');
@@ -76,7 +82,21 @@ export class TunnelManager extends EventEmitter {
       }
     }
 
-    log.info(`[tunnel] starting quick tunnel → localhost:${localPort}`);
+    this.spawnTunnel(Tunnel, localPort, 0);
+  }
+
+  /**
+   * Spawn the cloudflared process, retrying automatically if it exits before
+   * establishing the tunnel (e.g. "invalid UUID length: 0").
+   */
+  private spawnTunnel(
+    Tunnel: typeof import('cloudflared')['Tunnel'],
+    localPort: number,
+    attempt: number,
+  ): void {
+    if (this._stopped) return;
+
+    log.info(`[tunnel] starting quick tunnel → localhost:${localPort} (attempt ${attempt + 1}/${TunnelManager.MAX_RETRIES})`);
 
     const t = Tunnel.quick(`http://localhost:${localPort}`);
     this.tunnel = t;
@@ -112,9 +132,15 @@ export class TunnelManager extends EventEmitter {
       this._active = false;
       this.tunnel = null;
 
-      // If the process crashed before the tunnel was established, surface
-      // the last stderr output as an error so the UI doesn't stay stuck.
-      if (code !== 0 && !wasActive) {
+      // If it crashed before establishing the tunnel, retry automatically.
+      if (code !== 0 && !wasActive && !this._stopped) {
+        const nextAttempt = attempt + 1;
+        if (nextAttempt < TunnelManager.MAX_RETRIES) {
+          log.warn(`[tunnel] failed before connecting, retrying in ${TunnelManager.RETRY_DELAY_MS}ms...`);
+          setTimeout(() => this.spawnTunnel(Tunnel, localPort, nextAttempt), TunnelManager.RETRY_DELAY_MS);
+          return;
+        }
+        // Exhausted retries — surface the error.
         const lastLine = stderrBuf.trim().split('\n').pop() || `cloudflared exited with code ${code}`;
         this.emit('error', new Error(lastLine));
       }
@@ -125,6 +151,7 @@ export class TunnelManager extends EventEmitter {
 
   /** Stop the tunnel and reset state. */
   stop(): void {
+    this._stopped = true;
     if (this.tunnel) {
       log.info('[tunnel] stopping');
       // cloudflared's .stop() sends SIGINT which is a no-op on Windows.
