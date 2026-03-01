@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
@@ -75,7 +75,7 @@ function ensurePtyListener(): void {
     });
 }
 
-export default function Terminal({ tabId, isVisible, fixedCols, fixedRows }: TerminalProps) {
+const Terminal = React.memo(function Terminal({ tabId, isVisible, fixedCols, fixedRows }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const attachedRef = useRef<string | null>(null);
 
@@ -245,4 +245,6 @@ export default function Terminal({ tabId, isVisible, fixedCols, fixedRows }: Ter
       style={{ display: isVisible ? 'block' : 'none' }}
     />
   );
-}
+});
+
+export default Terminal;

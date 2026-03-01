@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Tab, TabStatus } from '../../shared/types';
 import TabIndicator from './TabIndicator';
 
@@ -12,7 +13,7 @@ interface StatusBarProps {
   tabs: Tab[];
 }
 
-export default function StatusBar({ tabs }: StatusBarProps) {
+const StatusBar = React.memo(function StatusBar({ tabs }: StatusBarProps) {
   const counts = new Map<TabStatus, number>();
   for (const tab of tabs) {
     counts.set(tab.status, (counts.get(tab.status) ?? 0) + 1);
@@ -36,4 +37,6 @@ export default function StatusBar({ tabs }: StatusBarProps) {
       </span>
     </div>
   );
-}
+});
+
+export default StatusBar;
