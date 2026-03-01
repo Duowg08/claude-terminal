@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.0](https://github.com/Mr8BitHK/claude-terminal/compare/v1.1.0...v1.2.0) (2026-03-01)
+
+### Features
+
+* display hook execution status in StatusBar with auto-dismiss ([445c3a1](https://github.com/Mr8BitHK/claude-terminal/commit/445c3a1463643c042883e901498e6a2c65bcc9ac))
+
+### Bug Fixes
+
+* add executableName for Linux deb/rpm packaging ([4a4cfc9](https://github.com/Mr8BitHK/claude-terminal/commit/4a4cfc988befc636ba86d4a6ca57ac9375e5675f))
+* emit worktree:created and tab:created hooks from tab:createWithWorktree ([0084df1](https://github.com/Mr8BitHK/claude-terminal/commit/0084df1d3df3164954c72fe5015448ae5623c973))
+* emit worktree:removed hook when closing tab with removeWorktree ([63f3c49](https://github.com/Mr8BitHK/claude-terminal/commit/63f3c4917419b7c5fbfa59cc3d0d0f57ee419113))
+* open terminal links in default browser via shell.openExternal ([3ed1bee](https://github.com/Mr8BitHK/claude-terminal/commit/3ed1bee7b2362bd45403d86dda56039af2968b5f))
+* shell tabs spawn next to active tab and receive focus ([a61f5ec](https://github.com/Mr8BitHK/claude-terminal/commit/a61f5ecb5088882106f8b1b93fb80e26301b019f))
+
+### Documentation
+
+* document repository hooks system and StatusBar hook feedback ([5711814](https://github.com/Mr8BitHK/claude-terminal/commit/57118146a3dbf4eb344b1f4393707dc19b883ef2))
+* overhaul README for discoverability and add LICENSE ([dcff073](https://github.com/Mr8BitHK/claude-terminal/commit/dcff073229f15760819e49e322902f609ee94244))
+
 ## 1.1.0 (2026-03-01)
 
 ### Features
