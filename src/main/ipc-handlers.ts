@@ -25,6 +25,13 @@ export interface AppState {
   pipeName: string;
 }
 
+export type WirePtyToTabFn = (
+  proc: { pid: number; onData: (cb: (data: string) => void) => void; onExit: (cb: () => void) => void },
+  tab: Tab,
+  cwd: string,
+  opts?: { alwaysActivate?: boolean },
+) => void;
+
 export interface IpcHandlerDeps {
   tabManager: TabManager;
   ptyManager: PtyManager;
@@ -38,7 +45,7 @@ export interface IpcHandlerDeps {
   getRemoteAccessInfo: () => RemoteAccessInfo;
 }
 
-export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
+export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void; wirePtyToTab: WirePtyToTabFn } {
   const { tabManager, ptyManager, settings, state } = deps;
 
   // Per-tab flow control state for PTY data buffering
@@ -503,15 +510,18 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): () => void {
     return deps.getRemoteAccessInfo();
   });
 
-  // Return cleanup function for app shutdown
-  return () => {
-    if (gitHeadDebounceTimer) {
-      clearTimeout(gitHeadDebounceTimer);
-      gitHeadDebounceTimer = null;
-    }
-    if (gitHeadWatcher) {
-      gitHeadWatcher.close();
-      gitHeadWatcher = null;
-    }
+  // Return cleanup function and wirePtyToTab for external use
+  return {
+    cleanup: () => {
+      if (gitHeadDebounceTimer) {
+        clearTimeout(gitHeadDebounceTimer);
+        gitHeadDebounceTimer = null;
+      }
+      if (gitHeadWatcher) {
+        gitHeadWatcher.close();
+        gitHeadWatcher = null;
+      }
+    },
+    wirePtyToTab,
   };
 }

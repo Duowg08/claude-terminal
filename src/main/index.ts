@@ -9,7 +9,7 @@ import { HookIpcServer } from './ipc-server';
 import { SettingsStore } from './settings-store';
 import { createTabNamer } from './tab-namer';
 import { createHookRouter } from './hook-router';
-import { registerIpcHandlers, type AppState } from './ipc-handlers';
+import { registerIpcHandlers, type AppState, type WirePtyToTabFn } from './ipc-handlers';
 import { TunnelManager } from './tunnel-manager';
 import { WebRemoteServer } from './web-remote-server';
 import type { RemoteAccessInfo } from '@shared/types';
@@ -31,6 +31,7 @@ let ipcServer: HookIpcServer | null = null;
 const tunnelManager = new TunnelManager();
 let webRemoteServer: WebRemoteServer | null = null;
 let cleanupIpcHandlers: (() => void) | null = null;
+let wirePtyToTabFn: WirePtyToTabFn | null = null;
 
 // ---------------------------------------------------------------------------
 // CLI argument parsing
@@ -319,11 +320,13 @@ app.on('ready', async () => {
     log.error('[ipc-server] FAILED to start:', String(err));
   }
 
-  cleanupIpcHandlers = registerIpcHandlers({
+  const ipcResult = registerIpcHandlers({
     tabManager, ptyManager, settings, state,
     sendToRenderer, persistSessions, cleanupNamingFlag,
     activateRemoteAccess, deactivateRemoteAccess, getRemoteAccessInfo,
   });
+  cleanupIpcHandlers = ipcResult.cleanup;
+  wirePtyToTabFn = ipcResult.wirePtyToTab;
 
   createWindow();
 });
