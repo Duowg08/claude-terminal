@@ -123,6 +123,13 @@ export default function App() {
     }
   }, []);
 
+  // Set instance tint color (PID-based hue for multi-window distinction)
+  useEffect(() => {
+    window.claudeTerminal.getInstanceHue().then((hue) => {
+      document.documentElement.style.setProperty('--instance-hue', String(hue));
+    });
+  }, []);
+
   // Auto-start when a CLI directory was provided (skip StartupDialog)
   useEffect(() => {
     let cancelled = false;

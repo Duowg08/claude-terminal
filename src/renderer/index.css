@@ -8,11 +8,14 @@ body {
   overflow: hidden;
 }
 
-.app { display: flex; flex-direction: column; height: 100vh; }
+.app {
+  display: flex; flex-direction: column; height: 100vh;
+  border: 1px solid hsl(var(--instance-hue, 0) 40% 25%);
+}
 
 .tab-bar {
   display: flex;
-  background: #252526;
+  background: hsl(var(--instance-hue, 0) 30% 18%);
   border-bottom: 1px solid #3c3c3c;
   min-height: 36px;
   align-items: center;
@@ -26,8 +29,8 @@ body {
   border-right: 1px solid #3c3c3c; font-size: 13px;
   -webkit-app-region: no-drag; user-select: none;
 }
-.tab:hover { background: #37373d; }
-.tab-active { background: #37373d; border-bottom: 2px solid #c9d1d9; }
+.tab:hover { background: hsl(var(--instance-hue, 0) 20% 24%); }
+.tab-active { background: hsl(var(--instance-hue, 0) 25% 22%); border-bottom: 2px solid #c9d1d9; }
 
 .tab-indicator { display: inline-flex; align-items: center; }
 .tab-indicator svg { width: 12px; height: 12px; }
@@ -80,7 +83,7 @@ body {
 
 .status-bar {
   display: flex; gap: 16px; padding: 2px 12px;
-  background: #252526; color: #808080; font-size: 12px;
+  background: hsl(var(--instance-hue, 0) 30% 18%); color: #808080; font-size: 12px;
   min-height: 22px; align-items: center;
   border-top: 1px solid #3c3c3c;
 }

@@ -494,6 +494,11 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
     }
   });
 
+  // ---- Instance tint (PID-based hue for multi-window distinction) ----
+  ipcMain.handle('instance:getHue', async () => {
+    return Math.floor((process.pid * 137.508) % 360);
+  });
+
   // ---- New window ----
   ipcMain.on('window:createNew', () => {
     // In dev mode, execPath is the bare Electron binary — pass '.' so it

@@ -131,6 +131,7 @@ describe('registerIpcHandlers', () => {
       'settings:recentDirs', 'settings:removeRecentDir', 'settings:permissionMode',
       'dialog:selectDirectory', 'cli:getStartDir',
       'remote:activate', 'remote:deactivate', 'remote:getInfo',
+      'instance:getHue',
     ];
     for (const channel of expectedHandlers) {
       expect(handlers.has(channel), `missing handler: ${channel}`).toBe(true);

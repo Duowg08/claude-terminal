@@ -303,6 +303,9 @@ export class WebSocketBridge {
         document.title = title;
       },
 
+      // Instance tint (not meaningful for remote — each browser tab is distinct)
+      getInstanceHue: async (): Promise<number> => Math.floor(Math.random() * 360),
+
       // New window (not available remotely)
       createNewWindow: (): void => {},
 

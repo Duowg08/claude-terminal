@@ -72,6 +72,10 @@ const api = {
   setWindowTitle: (title: string): void =>
     ipcRenderer.send('window:setTitle', title),
 
+  // Instance tint (PID-based hue for multi-window distinction)
+  getInstanceHue: (): Promise<number> =>
+    ipcRenderer.invoke('instance:getHue'),
+
   // New window
   createNewWindow: (): void =>
     ipcRenderer.send('window:createNew'),
