@@ -1,4 +1,5 @@
 import { app, dialog, ipcMain, shell } from 'electron';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -491,6 +492,15 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
     if (state.mainWindow) {
       state.mainWindow.setTitle(title);
     }
+  });
+
+  // ---- New window ----
+  ipcMain.on('window:createNew', () => {
+    // In dev mode, execPath is the bare Electron binary — pass '.' so it
+    // finds the app entry via package.json (parseCliStartDir already skips '.').
+    // In packaged mode, execPath is the .exe which embeds the entry.
+    const args = app.isPackaged ? [] : ['.'];
+    spawn(process.execPath, args, { detached: true, stdio: 'ignore' }).unref();
   });
 
   // ---- Open external URLs ----
