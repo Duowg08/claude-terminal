@@ -77,4 +77,9 @@
     margin: 0;
     padding: 0;
   }
+  /* Suppress pointer events on terminal during tab drag to prevent
+     the terminal from capturing drag events */
+  body.tab-dragging [data-terminal-area] {
+    pointer-events: none;
+  }
 }

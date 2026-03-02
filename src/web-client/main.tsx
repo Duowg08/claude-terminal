@@ -279,7 +279,7 @@ function RemoteApp({ initialTabs, initialActiveTabId, initialTermSizes, onDiscon
         onActivateRemote={noop}
         onDeactivateRemote={noop}
       />
-      <div className="flex-1 relative overflow-auto [-webkit-overflow-scrolling:touch]">
+      <div className="flex-1 relative overflow-auto [-webkit-overflow-scrolling:touch]" data-web-terminal>
         {tabs.map((tab) => (
           <Terminal
             key={tab.id}

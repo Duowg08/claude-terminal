@@ -366,7 +366,7 @@ export default function App() {
         onActivateRemote={handleActivateRemote}
         onDeactivateRemote={handleDeactivateRemote}
       />
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden" data-terminal-area>
         {tabs.map((tab) => (
           <Terminal
             key={tab.id}

@@ -5,9 +5,9 @@ body {
   height: 100dvh;
 }
 
-/* Terminal container in web client: relative positioning, natural size.
-   Allows scrolling to see the full host-sized terminal. */
-.web-terminal-area .absolute {
+/* Terminal container in web client: override Tailwind absolute positioning
+   so the terminal renders at its natural (host) size and scrolls. */
+[data-web-terminal] .absolute {
   position: relative;
   inset: auto;
   width: max-content;
