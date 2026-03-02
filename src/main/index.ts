@@ -187,13 +187,13 @@ async function deactivateRemoteAccess(): Promise<void> {
 // ---------------------------------------------------------------------------
 // Wire up extracted modules
 // ---------------------------------------------------------------------------
-const { generateTabName, cleanupNamingFlag } = createTabNamer({
+const { generateTabName, generateResumeTabName, cleanupNamingFlag } = createTabNamer({
   tabManager, sendToRenderer, persistSessions,
 });
 
 const { handleHookMessage } = createHookRouter({
   tabManager, sendToRenderer, persistSessions,
-  generateTabName, cleanupNamingFlag,
+  generateTabName, generateResumeTabName, cleanupNamingFlag,
   getMainWindow: () => state.mainWindow as BrowserWindow | null,
   hookEngine: { emit: (event: any, context: any) => state.hookEngine?.emit(event, context) ?? Promise.resolve() } as any,
 });

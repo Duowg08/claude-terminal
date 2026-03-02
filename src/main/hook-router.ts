@@ -8,6 +8,7 @@ export interface HookRouterDeps {
   sendToRenderer: (channel: string, ...args: unknown[]) => void;
   persistSessions: () => void;
   generateTabName: (tabId: string, prompt: string) => void;
+  generateResumeTabName: (tabId: string, cwd: string, sessionId: string) => Promise<void>;
   cleanupNamingFlag: (tabId: string) => void;
   getMainWindow: () => { show: () => void; focus: () => void } | null;
   hookEngine: { emit: (event: string, context: Record<string, string>) => Promise<void> } | null;
@@ -56,6 +57,8 @@ export function createHookRouter(deps: HookRouterDeps) {
         }
         log.info('[tab:ready]', tabId, 'sessionId:', sessionId, 'source:', source);
 
+        const previousSessionId = tab.sessionId;
+
         // Only reset tab name on /clear (source === "clear").
         // Don't check tab.sessionId — that also triggers on --resume
         // (which fires two SessionStart events: "startup" then "resume").
@@ -74,6 +77,12 @@ export function createHookRouter(deps: HookRouterDeps) {
           deps.tabManager.updateStatus(tabId, 'idle');
         } else {
           deps.tabManager.updateStatus(tabId, 'new');
+        }
+
+        // On resume with a different session, generate a name from the session history
+        if (source === 'resume' && sessionId && sessionId !== previousSessionId) {
+          log.info('[tab:ready] resume with new session for', tabId, '— generating name from history');
+          deps.generateResumeTabName(tabId, tab.cwd, sessionId);
         }
         deps.persistSessions();
         if (deps.hookEngine && sessionId) {
