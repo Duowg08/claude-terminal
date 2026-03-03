@@ -396,7 +396,7 @@ export default function App() {
         }
         return tabsRef.current;
       },
-      createNewWindow: () => window.claudeTerminal.createNewWindow(),
+      addProject: handleAddProject,
       newTab: handleNewTabWithoutWorktree,
       newWorktreeTab: tryShowWorktreeDialog,
       newShellTab: handleNewShellTab,
@@ -426,7 +426,7 @@ export default function App() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [appState, handleNewTabWithoutWorktree, handleNewShellTab, handleSelectTab, handleCloseTab, tryShowWorktreeDialog]);
+  }, [appState, handleAddProject, handleNewTabWithoutWorktree, handleNewShellTab, handleSelectTab, handleCloseTab, tryShowWorktreeDialog]);
 
   const handleStartSession = useCallback(async (dir: string, mode: PermissionMode) => {
     const result = await window.claudeTerminal.startSession(dir, mode);

@@ -11,7 +11,7 @@
 export interface KeybindingContext {
   activeTabId: () => string | null;
   tabs: () => { id: string }[];
-  createNewWindow: () => void;
+  addProject: () => void;
   newTab: () => void;
   newWorktreeTab: () => void;
   newShellTab: (type: 'powershell' | 'wsl', afterTabId?: string) => void;
@@ -40,7 +40,7 @@ function cycleTab(ctx: KeybindingContext, direction: 1 | -1) {
 }
 
 export const keybindings: Keybinding[] = [
-  { mod: 'ctrl',       key: 'n',     action: (ctx) => ctx.createNewWindow() },
+  { mod: 'ctrl',       key: 'n',     action: (ctx) => ctx.addProject() },
   { mod: 'ctrl',       key: 't',     action: (ctx) => ctx.newTab() },
   { mod: 'ctrl',       key: 'w',     action: (ctx) => ctx.newWorktreeTab() },
   { mod: 'ctrl',       key: 'p',     action: (ctx) => ctx.openProjectSwitcher() },
