@@ -8,11 +8,17 @@ export class HookInstaller {
     this.hooksDir = hooksDir;
   }
 
-  /** Check if a hook entry was installed by ClaudeTerminal */
+  /** Check if a hook entry was installed by ClaudeTerminal (any version) */
   private isOurHook(entry: any): boolean {
-    return entry?.hooks?.some((h: any) =>
-      typeof h.command === 'string' && h.command.includes(this.hooksDir)
-    ) ?? false;
+    return entry?.hooks?.some((h: any) => {
+      if (typeof h.command !== 'string') return false;
+      // Match current hooksDir or any older versioned ClaudeTerminal path
+      // e.g. ...\ClaudeTerminal\app-1.4.1\resources\hooks\on-stop.js
+      return (
+        h.command.includes(this.hooksDir) ||
+        /ClaudeTerminal[\\/]app-[\d.]+[\\/]resources[\\/]hooks[\\/]/.test(h.command)
+      );
+    }) ?? false;
   }
 
   /** Read existing settings.local.json or return empty object */
