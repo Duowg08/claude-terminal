@@ -23,7 +23,7 @@ vi.mock('electron', () => ({
 
 // Mock logger
 vi.mock('@main/logger', () => ({
-  log: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+  log: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn(), init: vi.fn() },
 }));
 
 // Mock WorktreeManager and HookInstaller (constructed inside handlers)

@@ -17,7 +17,7 @@ import { log } from './logger';
 import { checkForUpdate, registerUpdateHandlers } from './update-checker';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (handleSquirrelEvent(app)) {
+if (handleSquirrelEvent()) {
   process.exit(0);
 }
 

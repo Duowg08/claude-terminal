@@ -113,7 +113,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
       // In dev, __dirname is .vite/build/ — go up to project root.
       // In production, hooks are copied to resources/hooks/ by forge config.
       const projectRoot = app.isPackaged
-        ? path.join(process.resourcesPath, 'hooks')
+        ? path.join(path.dirname(process.execPath), '..', 'hooks')
         : path.join(__dirname, '..', '..', 'src', 'hooks');
       log.debug('[session:start] __dirname:', __dirname);
       log.debug('[session:start] hooksDir:', projectRoot);
