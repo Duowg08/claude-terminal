@@ -71,7 +71,10 @@ export function createTabNamer(deps: TabNamerDeps) {
    * e.g. "D:\dev\claude-terminal" → "D--dev-claude-terminal"
    */
   function encodeProjectDir(cwd: string): string {
-    return cwd.replace(/[:\\/\.]/g, '-');
+    // Two passes: the single-regex /[:\\/\.]/ has a known V8 parsing quirk
+    // where \\ inside [...] is treated as \/ (escaped slash) rather than
+    // \\ (escaped backslash), so backslashes were silently not replaced.
+    return cwd.replace(/\\/g, '-').replace(/[:/\.]/g, '-');
   }
 
   /**
@@ -87,12 +90,23 @@ export function createTabNamer(deps: TabNamerDeps) {
       try {
         const entry = JSON.parse(line);
         if (entry.type === 'user' && entry.message?.content) {
-          const content = typeof entry.message.content === 'string'
-            ? entry.message.content
-            : JSON.stringify(entry.message.content);
+          const rawContent = entry.message.content;
+          let text: string;
+          if (typeof rawContent === 'string') {
+            text = rawContent;
+          } else if (Array.isArray(rawContent)) {
+            // Extract only text blocks; skip entries that are purely tool results
+            const textParts = (rawContent as Array<{ type: string; text?: string }>)
+              .filter(item => item.type === 'text')
+              .map(item => item.text ?? '');
+            if (textParts.length === 0) continue;
+            text = textParts.join('\n');
+          } else {
+            continue;
+          }
           // Skip meta/command messages
-          if (!entry.isMeta && !content.startsWith('<command-name>')) {
-            prompts.push(content);
+          if (!entry.isMeta && !text.startsWith('<command-name>')) {
+            prompts.push(text);
           }
         }
       } catch { /* skip malformed lines */ }
