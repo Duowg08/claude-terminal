@@ -72,6 +72,16 @@ export function createHookRouter(deps: HookRouterDeps) {
           log.info('[tab:ready] /clear detected for', tabId, '— resetting name');
           deps.tabManager.resetName(tabId);
           deps.cleanupNamingFlag(tabId);
+          // Generate a name from the previous session's history. This handles
+          // "clear context and run plan" in plan mode, where UserPromptSubmit
+          // never fires (plan mode tools are invisible to the hooks system —
+          // see https://github.com/Mr8BitHK/claude-terminal/issues/9).
+          // For a regular /clear, this name gets overwritten by the next
+          // UserPromptSubmit anyway, so the only cost is one extra Haiku call.
+          if (previousSessionId) {
+            log.info('[tab:ready] generating name from previous session after clear', tabId);
+            deps.generateResumeTabName(tabId, tab.cwd, previousSessionId);
+          }
         }
 
         if (sessionId) {
