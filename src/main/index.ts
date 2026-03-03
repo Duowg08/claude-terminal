@@ -225,6 +225,10 @@ const { handleHookMessage } = createHookRouter({
   generateTabName, generateResumeTabName, cleanupNamingFlag,
   getMainWindow: () => state.mainWindow as BrowserWindow | null,
   hookEngine: { emit: (event: any, context: any) => state.hookEngine?.emit(event, context) ?? Promise.resolve() } as any,
+  getProjectName: (projectId) => {
+    const ctx = state.projectManager?.getProject(projectId);
+    return ctx ? path.basename(ctx.dir) : undefined;
+  },
 });
 
 // ---------------------------------------------------------------------------

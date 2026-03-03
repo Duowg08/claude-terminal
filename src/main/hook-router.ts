@@ -12,6 +12,7 @@ export interface HookRouterDeps {
   cleanupNamingFlag: (tabId: string) => void;
   getMainWindow: () => { show: () => void; focus: () => void } | null;
   hookEngine: { emit: (event: string, context: Record<string, string>) => Promise<void> } | null;
+  getProjectName: (projectId: string) => string | undefined;
 }
 
 export function createHookRouter(deps: HookRouterDeps) {
@@ -103,14 +104,18 @@ export function createHookRouter(deps: HookRouterDeps) {
       case 'tab:status:idle':
         deps.tabManager.updateStatus(tabId, 'idle');
         if (!isActive && tab) {
-          notifyTabActivity(tabId, tab.name, 'Claude has finished working');
+          const projectName = tab.projectId ? deps.getProjectName(tab.projectId) : undefined;
+          const title = projectName ? `${projectName} - ${tab.name}` : tab.name;
+          notifyTabActivity(tabId, title, 'Claude has finished working');
         }
         break;
 
       case 'tab:status:input':
         deps.tabManager.updateStatus(tabId, 'requires_response');
         if (!isActive && tab) {
-          notifyTabActivity(tabId, tab.name, 'Claude needs your input');
+          const projectName = tab.projectId ? deps.getProjectName(tab.projectId) : undefined;
+          const title = projectName ? `${projectName} - ${tab.name}` : tab.name;
+          notifyTabActivity(tabId, title, 'Claude needs your input');
         }
         break;
 

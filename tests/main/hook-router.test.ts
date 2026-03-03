@@ -40,6 +40,7 @@ function makeMockDeps() {
     cleanupNamingFlag: vi.fn(),
     getMainWindow: vi.fn(() => ({ show: vi.fn(), focus: vi.fn() })),
     hookEngine: null,
+    getProjectName: vi.fn(() => undefined),
   };
 }
 
