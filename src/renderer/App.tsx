@@ -39,6 +39,8 @@ export default function App() {
   activeTabIdRef.current = activeTabId;
   const activeProjectIdRef = useRef(activeProjectId);
   activeProjectIdRef.current = activeProjectId;
+  const projectsRef = useRef(projects);
+  projectsRef.current = projects;
 
   const [workspaceDir, setWorkspaceDir] = useState<string | null>(null);
   const [remoteInfo, setRemoteInfo] = useState<RemoteAccessInfo>({
@@ -396,12 +398,15 @@ export default function App() {
         }
         return tabsRef.current;
       },
+      projects: () => projectsRef.current,
+      activeProjectId: () => activeProjectIdRef.current,
       addProject: handleAddProject,
       newTab: handleNewTabWithoutWorktree,
       newWorktreeTab: tryShowWorktreeDialog,
       newShellTab: handleNewShellTab,
       closeTab: handleCloseTab,
       selectTab: handleSelectTab,
+      selectProject: handleSelectProject,
       renameTab: (id) => setRenamingTabId(id),
       openProjectSwitcher: () => setShowProjectSwitcher(true),
     };
@@ -426,7 +431,7 @@ export default function App() {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [appState, handleAddProject, handleNewTabWithoutWorktree, handleNewShellTab, handleSelectTab, handleCloseTab, tryShowWorktreeDialog]);
+  }, [appState, handleAddProject, handleNewTabWithoutWorktree, handleNewShellTab, handleSelectTab, handleSelectProject, handleCloseTab, tryShowWorktreeDialog]);
 
   const handleStartSession = useCallback(async (dir: string, mode: PermissionMode) => {
     const result = await window.claudeTerminal.startSession(dir, mode);
