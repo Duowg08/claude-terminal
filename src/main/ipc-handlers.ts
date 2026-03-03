@@ -595,7 +595,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
     }
 
     const wtManager = project?.worktreeManager ?? state.worktreeManager;
-    if (!wtManager) throw new Error('Session not started');
+    if (!wtManager) throw new Error('Not a git repository');
     const worktreePath = await wtManager.create(name);
 
     const hookEngine = project?.hookEngine ?? state.hookEngine;
@@ -608,21 +608,21 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
   ipcMain.handle('worktree:currentBranch', async (_event, projectId?: string) => {
     const project = projectId ? state.projectManager?.getProject(projectId) : undefined;
     const wtManager = project?.worktreeManager ?? state.worktreeManager;
-    if (!wtManager) throw new Error('Session not started');
+    if (!wtManager) throw new Error('Not a git repository');
     return wtManager.getCurrentBranch();
   });
 
   ipcMain.handle('worktree:listDetails', async (_event, projectId?: string) => {
     const project = projectId ? state.projectManager?.getProject(projectId) : undefined;
     const wtManager = project?.worktreeManager ?? state.worktreeManager;
-    if (!wtManager) throw new Error('Session not started');
+    if (!wtManager) throw new Error('Not a git repository');
     return wtManager.listDetails();
   });
 
   ipcMain.handle('worktree:remove', async (_event, worktreePath: string, projectId?: string) => {
     const project = projectId ? state.projectManager?.getProject(projectId) : undefined;
     const wtManager = project?.worktreeManager ?? state.worktreeManager;
-    if (!wtManager) throw new Error('Session not started');
+    if (!wtManager) throw new Error('Not a git repository');
     await wtManager.remove(worktreePath);
 
     const hookEngine = project?.hookEngine ?? state.hookEngine;
@@ -635,7 +635,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
   ipcMain.handle('worktree:checkStatus', async (_event, worktreePath: string, projectId?: string) => {
     const project = projectId ? state.projectManager?.getProject(projectId) : undefined;
     const wtManager = project?.worktreeManager ?? state.worktreeManager;
-    if (!wtManager) throw new Error('Session not started');
+    if (!wtManager) throw new Error('Not a git repository');
     return wtManager.checkStatus(worktreePath);
   });
 
