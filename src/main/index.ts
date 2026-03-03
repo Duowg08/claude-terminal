@@ -153,12 +153,12 @@ function persistSessions() {
   }, 200);
 }
 
-function flushPersistSessions() {
+async function flushPersistSessions(): Promise<void> {
   if (persistDebounceTimer) {
     clearTimeout(persistDebounceTimer);
     persistDebounceTimer = null;
   }
-  doPersistSessions();
+  await doPersistSessions();
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +373,7 @@ app.on('ready', async () => {
 
 app.on('window-all-closed', async () => {
   log.info('[quit] workspaceDir:', state.workspaceDir, 'tabs:', tabManager.getAllTabs().length);
-  flushPersistSessions();
+  await flushPersistSessions();
   shuttingDown = true;
 
   for (const tab of tabManager.getAllTabs()) {
