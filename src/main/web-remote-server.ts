@@ -403,9 +403,11 @@ export class WebRemoteServer {
             sendProgress(`${GREEN}✓${RESET} Worktree created\r\n\r\n`);
 
             if (state.hookEngine) {
-              state.hookEngine.emit('worktree:created', {
-                contextRoot: cwd, name: worktreeName, path: cwd, branch: worktreeName,
-              });
+              await state.hookEngine.emit(
+                'worktree:created',
+                { contextRoot: cwd, name: worktreeName, path: cwd, branch: worktreeName },
+                (text) => sendProgress(`${DIM}${text}${RESET}`),
+              );
             }
 
             sendProgress(`${CYAN}❯${RESET} Starting Claude...\r\n`);

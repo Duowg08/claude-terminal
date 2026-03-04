@@ -23,7 +23,7 @@ export class HookEngine {
     this.onStatus = onStatus;
   }
 
-  async emit(event: HookEvent, context: HookContext): Promise<void> {
+  async emit(event: HookEvent, context: HookContext, onProgress?: (text: string) => void): Promise<void> {
     const hooks = await this.store.getHooksForEvent(event);
     if (hooks.length === 0) return;
 
@@ -33,6 +33,12 @@ export class HookEngine {
       for (let i = 0; i < hook.commands.length; i++) {
         const cmd = hook.commands[i];
         const cwd = path.resolve(context.contextRoot, cmd.path);
+
+        if (i === 0) {
+          onProgress?.(`Running hook: ${hook.name}...\r\n`);
+        } else {
+          onProgress?.(`  Command ${i + 1}/${hook.commands.length}...\r\n`);
+        }
 
         this.onStatus({
           hookId: hook.id,

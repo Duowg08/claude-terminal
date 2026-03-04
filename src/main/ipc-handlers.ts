@@ -445,7 +445,11 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
 
         const hookEngine = project?.hookEngine ?? state.hookEngine;
         if (hookEngine) {
-          hookEngine.emit('worktree:created', { contextRoot: cwd, name: worktreeName, path: cwd, branch: worktreeName });
+          await hookEngine.emit(
+            'worktree:created',
+            { contextRoot: cwd, name: worktreeName, path: cwd, branch: worktreeName },
+            (text) => sendProgress(`${DIM}${text}${RESET}`),
+          );
         }
 
         sendProgress(`${CYAN}❯${RESET} Starting Claude...\r\n`);
@@ -602,7 +606,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): { cleanup: () => void
 
     const hookEngine = project?.hookEngine ?? state.hookEngine;
     if (hookEngine) {
-      hookEngine.emit('worktree:created', { contextRoot: worktreePath, name, path: worktreePath, branch: name });
+      await hookEngine.emit('worktree:created', { contextRoot: worktreePath, name, path: worktreePath, branch: name });
     }
     return worktreePath;
   });
